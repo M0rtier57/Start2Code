@@ -18,15 +18,14 @@ export default defineConfig(({ mode }) => {
   const supabaseAnonKey =
     env.VITE_SUPABASE_ANON_KEY || env.SUPABASE_ANON_KEY || env.SUPABASE_KEY || ''
 
-  if (!supabaseUrl || !supabaseAnonKey) {
-    // Visible in the host's build log, where a failed deploy is diagnosed.
-    console.warn(
-      '\n[start2code] Building WITHOUT Supabase credentials.\n' +
-      '            The site will show the setup screen instead of a login page.\n' +
-      '            Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY (or SUPABASE_URL\n' +
-      '            and SUPABASE_ANON_KEY) in your environment variables.\n'
-    )
-  }
+  // Visible in the host's build log, which is where a deploy gets diagnosed.
+  console.log(
+    supabaseUrl
+      ? `\n[start2code] Supabase from the environment: ${supabaseUrl}\n`
+      : '\n[start2code] No Supabase environment variables — using the committed\n' +
+        '            defaults in src/lib/config.js. This is expected on hosts that\n' +
+        '            do not expose variables to the build step.\n'
+  )
 
   return {
     plugins: [react()],

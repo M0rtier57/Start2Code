@@ -189,16 +189,31 @@ Settings in hPanel → Website → Git:
 | Framework | Vite (detected) |
 | Build / output | Default (`npm run build` → `dist`) |
 
-Two things Hostinger cannot work out on its own:
+### Why the Supabase keys are committed
 
-1. **Environment variables.** `.env.local` is gitignored, so the build server has no
-   Supabase credentials unless you add them in hPanel: `VITE_SUPABASE_URL` and
-   `VITE_SUPABASE_ANON_KEY`. Vite inlines them at build time — without them the app
-   deploys but cannot log anyone in. (The anon key is meant to be public; row level
-   security is what protects the data.)
-2. **Supabase → Authentication → URL Configuration**: set Site URL to your live
-   domain and add it to the redirect list, or confirmation emails send students to
-   `localhost`.
+Hostinger does not expose environment variables to the **build** step — only at
+runtime. A Vite app is compiled before it is ever served, so a runtime-only variable
+arrives far too late and the site ships with no database, showing a blank page or the
+setup screen. Connecting Supabase through Hostinger's own integration does not change
+this.
+
+So the connection details live in [`src/lib/config.js`](src/lib/config.js) and are
+committed. That is safe: the anon key is a **public** identifier that already ships
+inside the compiled JavaScript of any deployed build, where any visitor can read it.
+Row level security is what protects the data — see `supabase/schema.sql`. The
+`service_role` key is the secret one and must never go near this repository.
+
+Environment variables still win when present, so nothing stops you pointing a build
+at a different project:
+
+```bash
+VITE_SUPABASE_URL=… VITE_SUPABASE_ANON_KEY=… npm run build
+```
+
+### The one remaining setting
+
+**Supabase → Authentication → URL Configuration**: set Site URL to your live domain
+and add it to the redirect list, or confirmation emails send students to `localhost`.
 
 `public/.htaccess` is copied into `dist/` by every build and handles SPA routing, so
 refreshing a deep link like `/python/<id>` works instead of 404ing.
