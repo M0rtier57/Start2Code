@@ -173,32 +173,39 @@ rows point at it.
 
 ## Deploying to Hostinger
 
-Hostinger's shared hosting copies a branch straight into `public_html` and never
-runs a build. So `main` holds the source, and
-[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) builds it and pushes
-the finished site to a **`deploy`** branch — which is the branch Hostinger watches.
-You keep pushing to `main` as normal.
-
-One-time setup:
-
-1. **GitHub → Settings → Secrets and variables → Actions**, add two secrets:
-   `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`. Vite bakes them into the built
-   JavaScript, so the build cannot reach Supabase without them.
-2. **hPanel → Website → Git**: change the deployed branch from `main` to `deploy`.
-   (The `deploy` branch only exists after the workflow has run once.)
-3. **Supabase → Authentication → URL Configuration**: set the Site URL to your live
-   domain and add it to the redirect list, or confirmation emails will send students
-   to `localhost`.
-
-Check after the first deploy that `.htaccess` is present in `public_html`. Without it
-every URL except the home page returns 404 on refresh.
-
-To publish without git — build locally and upload the **contents** of `dist/`
-(including the hidden `.htaccess`) into `public_html`:
+Hostinger builds this project itself — it detects Vite, runs `npm run build` on
+Node 22 and serves `dist/`. So deploying is just:
 
 ```bash
-npm run deploy
+git push
 ```
+
+Settings in hPanel → Website → Git:
+
+| Setting | Value |
+| --- | --- |
+| Branch | `main` (the source — **not** a branch of built output) |
+| Root directory | `./` |
+| Framework | Vite (detected) |
+| Build / output | Default (`npm run build` → `dist`) |
+
+Two things Hostinger cannot work out on its own:
+
+1. **Environment variables.** `.env.local` is gitignored, so the build server has no
+   Supabase credentials unless you add them in hPanel: `VITE_SUPABASE_URL` and
+   `VITE_SUPABASE_ANON_KEY`. Vite inlines them at build time — without them the app
+   deploys but cannot log anyone in. (The anon key is meant to be public; row level
+   security is what protects the data.)
+2. **Supabase → Authentication → URL Configuration**: set Site URL to your live
+   domain and add it to the redirect list, or confirmation emails send students to
+   `localhost`.
+
+`public/.htaccess` is copied into `dist/` by every build and handles SPA routing, so
+refreshing a deep link like `/python/<id>` works instead of 404ing.
+
+To build and upload by hand instead (File Manager / FTP), run `npm run deploy` and
+copy the **contents** of `dist/` — including the hidden `.htaccess` — into
+`public_html`.
 
 ---
 

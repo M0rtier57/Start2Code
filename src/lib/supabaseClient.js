@@ -3,17 +3,24 @@ import { createClient } from '@supabase/supabase-js'
 const url = import.meta.env.VITE_SUPABASE_URL
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-if (!url || !anonKey) {
-  // Fail loudly and early — a missing key otherwise shows up as confusing
-  // "Failed to fetch" errors on every single request.
+export const isConfigured = Boolean(url && anonKey)
+
+if (!isConfigured) {
   console.error(
-    'Supabase is not configured. Create Start2Code/.env.local with ' +
-    'VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY, then restart the dev server.'
+    'Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY ' +
+    '(in .env.local locally, or in your host\'s environment variables for a deployed build).'
   )
 }
 
-export const supabase = createClient(url ?? '', anonKey ?? '', {
-  auth: { persistSession: true, autoRefreshToken: true }
-})
-
-export const isConfigured = Boolean(url && anonKey)
+/*
+ * createClient throws if the url is empty, and it runs while this module is
+ * being imported — before React has rendered anything. A missing variable would
+ * therefore produce a blank white page with no clue as to why. Falling back to a
+ * syntactically valid placeholder keeps the app booting far enough to render the
+ * setup screen that explains what to do; `isConfigured` is what the UI checks.
+ */
+export const supabase = createClient(
+  url || 'https://placeholder.supabase.co',
+  anonKey || 'placeholder-anon-key',
+  { auth: { persistSession: true, autoRefreshToken: true } }
+)

@@ -2,6 +2,7 @@ import { NavLink, Navigate, Outlet, Route, Routes, useNavigate } from 'react-rou
 
 import { Avatar, LoadingScreen } from './components/ui'
 import { useAuth } from './lib/AuthContext'
+import { isConfigured } from './lib/supabaseClient'
 
 import AdminPanel from './pages/AdminPanel'
 import Dashboard from './pages/Dashboard'
@@ -12,6 +13,10 @@ import TeacherDashboard from './pages/TeacherDashboard'
 
 export default function App() {
   const { session, loading } = useAuth()
+
+  // Checked before anything touches auth: without credentials every request
+  // would fail, and an explanation beats a silently broken login form.
+  if (!isConfigured) return <SetupNeeded />
 
   if (loading) return <LoadingScreen label="Getting things ready…" />
   if (!session) return <Login />
@@ -79,6 +84,44 @@ function Shell() {
 
       <main><Outlet /></main>
     </>
+  )
+}
+
+/**
+ * Shown when the Supabase environment variables are missing. This is almost
+ * always a deployed build whose host has no environment variables set, so it
+ * says which ones and where they go rather than just failing.
+ */
+function SetupNeeded() {
+  return (
+    <div style={{ minHeight: '100%', display: 'grid', placeItems: 'center', padding: 24 }}>
+      <div className="card" style={{ width: 'min(560px, 100%)' }}>
+        <div className="logo" style={{ fontSize: '1.2rem' }}>
+          <span className="logo-mark">&lt;/&gt;</span> Start2Code
+        </div>
+
+        <h2 className="mt-4">Almost there — this build has no database yet</h2>
+        <p className="muted mt-2">
+          The app was built without its Supabase credentials, so it cannot log anyone in.
+        </p>
+
+        <p className="small mt-4"><strong>Add these two variables, then build again:</strong></p>
+        <pre
+          className="mt-2"
+          style={{
+            background: 'var(--dark-1)', color: 'var(--dark-ink)', padding: 14,
+            borderRadius: 10, fontFamily: 'var(--mono)', fontSize: 13, overflowX: 'auto'
+          }}
+        >{`VITE_SUPABASE_URL=https://<your-project>.supabase.co
+VITE_SUPABASE_ANON_KEY=<your anon key>`}</pre>
+
+        <p className="small muted mt-4">
+          On Hostinger they go in your site&rsquo;s environment variable settings; on your own
+          machine, in <code>.env.local</code>. Vite reads them at build time, so a rebuild is
+          needed after adding them.
+        </p>
+      </div>
+    </div>
   )
 }
 
