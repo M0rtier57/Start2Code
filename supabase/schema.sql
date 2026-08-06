@@ -121,7 +121,8 @@ create table if not exists public.lessons (
   minutes     int  not null default 15,
   mode        text not null default 'console' check (mode in ('console', 'game')),
   steps       jsonb not null default '[]'::jsonb,
-  starter     text,
+  starter     text,          -- Python: the starting source code
+  starter_path text,         -- Scratch: an .sb3 in the lesson-assets bucket
   scope       text not null default 'class' check (scope in ('class', 'global')),
   class_id    uuid references public.classes (id) on delete cascade,
   author_id   uuid not null references public.profiles (id) on delete cascade,
@@ -136,6 +137,9 @@ create table if not exists public.lessons (
     (scope = 'global' and class_id is null)
   )
 );
+
+-- Added after the table shipped, so existing databases pick it up on a re-run.
+alter table public.lessons add column if not exists starter_path text;
 
 create index if not exists lessons_class_idx on public.lessons (class_id);
 create index if not exists lessons_scope_idx on public.lessons (scope);
@@ -438,6 +442,33 @@ create policy projects_storage_update on storage.objects for update
 drop policy if exists projects_storage_delete on storage.objects;
 create policy projects_storage_delete on storage.objects for delete
   using (bucket_id = 'projects' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- -----------------------------------------------------------------------------
+-- Lesson assets — the .sb3 a Scratch lesson starts from.
+--
+-- Public read on purpose: every child following the lesson has to fetch it, and
+-- a starter project is teaching material, not personal data. Writing is limited
+-- to teachers and admins.
+-- -----------------------------------------------------------------------------
+insert into storage.buckets (id, name, public)
+values ('lesson-assets', 'lesson-assets', true)
+on conflict (id) do update set public = true;
+
+drop policy if exists lesson_assets_read on storage.objects;
+create policy lesson_assets_read on storage.objects for select
+  using (bucket_id = 'lesson-assets');
+
+drop policy if exists lesson_assets_write on storage.objects;
+create policy lesson_assets_write on storage.objects for insert
+  with check (bucket_id = 'lesson-assets' and public.my_role() in ('teacher', 'admin'));
+
+drop policy if exists lesson_assets_update on storage.objects;
+create policy lesson_assets_update on storage.objects for update
+  using (bucket_id = 'lesson-assets' and public.my_role() in ('teacher', 'admin'));
+
+drop policy if exists lesson_assets_delete on storage.objects;
+create policy lesson_assets_delete on storage.objects for delete
+  using (bucket_id = 'lesson-assets' and public.my_role() in ('teacher', 'admin'));
 
 -- -----------------------------------------------------------------------------
 -- Keep updated_at fresh

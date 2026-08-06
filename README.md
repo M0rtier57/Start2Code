@@ -162,6 +162,18 @@ Lessons come from two places and are merged at runtime by
 
 Teachers use **Classes → Lessons**; admins use **Admin → Lessons**.
 
+### Starting point
+
+Both tracks can give children something to open into rather than a blank page:
+
+- **Python** — starting source code, typed into the editor in the lesson form.
+- **Scratch** — a starting `.sb3`. Build it in the Scratch editor, press
+  **⬇ Download .sb3**, then upload it in the lesson form. It is stored in the
+  public-read `lesson-assets` bucket, which only teachers and admins can write to.
+
+A saved project always wins over the starter, so a child who comes back to a lesson
+gets their own work, never the template again.
+
 ### Editing a built-in lesson
 
 An admin can press **Customise** on any built-in lesson. That saves a database row

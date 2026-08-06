@@ -21,6 +21,7 @@ function fromRow(row) {
     mode: row.mode ?? 'console',
     steps: Array.isArray(row.steps) ? row.steps : [],
     starter: row.starter ?? '',
+    starterPath: row.starter_path ?? null,
     concepts: [],
     track: row.track,
 

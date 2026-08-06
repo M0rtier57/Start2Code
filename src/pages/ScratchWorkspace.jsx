@@ -5,7 +5,7 @@ import LessonPanel from '../components/LessonPanel'
 import { LoadingScreen, Modal, useToast } from '../components/ui'
 import { useAuth } from '../lib/AuthContext'
 import {
-  downloadScratchFile, getProject, logActivity, renameProject, saveScratchFile
+  downloadScratchFile, getProject, lessonStarterUrl, logActivity, renameProject, saveScratchFile
 } from '../lib/api'
 import { downloadBlob, pickFile, toFilename } from '../lib/download'
 import { useCurriculum } from '../lib/CurriculumContext'
@@ -38,7 +38,7 @@ export default function ScratchWorkspace() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const toast = useToast()
-  const { getLesson, tracks } = useCurriculum()
+  const { getLesson, tracks, loading: curriculumLoading } = useCurriculum()
 
   const [project, setProject] = useState(null)
   const [title, setTitle] = useState('')
@@ -50,6 +50,7 @@ export default function ScratchWorkspace() {
 
   const frame = useRef(null)
   const dirty = useRef(false)
+  const contentLoaded = useRef(false)   // guards against loading twice
 
   const lesson = useMemo(
     () => getLesson('scratch', project?.lesson_id ?? params.get('lesson')),
@@ -78,21 +79,7 @@ export default function ScratchWorkspace() {
       const data = event.data
       if (!data || data.source !== 's2c-scratch') return
 
-      if (data.type === 'ready') {
-        setEditorReady(true)
-        // Restore saved work as soon as the VM exists.
-        if (project?.storage_path) {
-          try {
-            const blob = await downloadScratchFile(project.storage_path)
-            const buffer = await blob.arrayBuffer()
-            frame.current?.contentWindow?.postMessage(
-              { source: 's2c', type: 'load-sb3', buffer }, '*', [buffer]
-            )
-          } catch (error) {
-            toast.error(`Could not open your saved project: ${error.message}`)
-          }
-        }
-      }
+      if (data.type === 'ready') setEditorReady(true)
 
       if (data.type === 'dirty' && !dirty.current) {
         dirty.current = true
@@ -112,6 +99,49 @@ export default function ScratchWorkspace() {
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
   }, [project, toast])
+
+  /* --------------------------------------------------------- initial content
+   * Runs once the editor is up *and* the project and curriculum have loaded.
+   * Doing this on the 'ready' message alone would race: the VM often reports
+   * ready before the lesson is known, and the starting project would be skipped.
+   */
+  useEffect(() => {
+    if (!editorReady || contentLoaded.current || !project) return
+    if (curriculumLoading) return   // wait until we know whether a starter exists
+
+    contentLoaded.current = true
+
+    const send = (buffer) => frame.current?.contentWindow?.postMessage(
+      { source: 's2c', type: 'load-sb3', buffer }, '*', [buffer]
+    )
+
+    ;(async () => {
+      // Saved work always wins. Only a project that has never been saved falls
+      // back to the lesson's starting project, so a child's own work can never
+      // be overwritten by the template.
+      if (project.storage_path) {
+        try {
+          const blob = await downloadScratchFile(project.storage_path)
+          send(await blob.arrayBuffer())
+        } catch (error) {
+          toast.error(`Could not open your saved project: ${error.message}`)
+        }
+        return
+      }
+
+      if (lesson?.starterPath) {
+        try {
+          const response = await fetch(lessonStarterUrl(lesson.starterPath))
+          if (!response.ok) throw new Error(`status ${response.status}`)
+          send(await response.arrayBuffer())
+        } catch (error) {
+          // Not fatal — the child simply starts from the empty stage.
+          console.warn('Could not load the lesson starter project:', error.message)
+          toast.error('The starting project for this lesson could not be loaded.')
+        }
+      }
+    })()
+  }, [editorReady, project, lesson, curriculumLoading, toast])
 
   /* ------------------------------------------------------------------ save */
   const exportSb3 = useCallback(async () => {

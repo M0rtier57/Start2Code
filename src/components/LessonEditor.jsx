@@ -3,7 +3,8 @@ import Editor from '@monaco-editor/react'
 
 import { Modal, useToast } from './ui'
 import { useAuth } from '../lib/AuthContext'
-import { createLesson, makeLessonKey, updateLesson } from '../lib/api'
+import { createLesson, makeLessonKey, removeLessonStarter, updateLesson, uploadLessonStarter } from '../lib/api'
+import { pickFile } from '../lib/download'
 import { BLANK_PYGAME, BLANK_PYTHON } from '../curriculum/python'
 
 /**
@@ -30,6 +31,8 @@ export default function LessonEditor({ lesson, builtIn, classes = [], canPublish
     seed?.steps?.length ? [...seed.steps] : ['']
   )
   const [starter, setStarter] = useState(seed?.starter ?? '')
+  const [starterPath, setStarterPath] = useState(lesson?.starter_path ?? seed?.starterPath ?? null)
+  const [uploading, setUploading] = useState(false)
   const [scope, setScope] = useState(
     lesson?.scope ?? (canPublishGlobal ? 'global' : 'class')
   )
@@ -57,6 +60,29 @@ export default function LessonEditor({ lesson, builtIn, classes = [], canPublish
 
   const useTemplate = () => setStarter(mode === 'game' ? BLANK_PYGAME : BLANK_PYTHON)
 
+  /**
+   * A Scratch lesson starts from a project file rather than source code. Build
+   * it in the editor, download the .sb3, then upload it here.
+   */
+  const uploadStarter = async () => {
+    const file = await pickFile('.sb3')
+    if (!file) return
+
+    setUploading(true)
+    try {
+      const previous = starterPath
+      const path = await uploadLessonStarter(file, user.id)
+      setStarterPath(path)
+      // Only bin the old file once the new one is safely stored.
+      if (previous) removeLessonStarter(previous)
+      toast.success('Starting project uploaded')
+    } catch (error) {
+      toast.error(`Could not upload: ${error.message}`)
+    } finally {
+      setUploading(false)
+    }
+  }
+
   const submit = async (event) => {
     event.preventDefault()
 
@@ -73,6 +99,7 @@ export default function LessonEditor({ lesson, builtIn, classes = [], canPublish
       mode: isPython ? mode : 'console',
       steps: cleanSteps,
       starter: isPython ? starter : null,
+      starter_path: isPython ? null : starterPath,
       scope,
       class_id: scope === 'class' ? classId : null
     }
@@ -229,6 +256,43 @@ export default function LessonEditor({ lesson, builtIn, classes = [], canPublish
                 }}
               />
             </div>
+          </div>
+        )}
+
+        {/* Scratch starting project */}
+        {!isPython && (
+          <div>
+            <label className="field" style={{ marginBottom: 0 }}>Starting project (optional)</label>
+            <p className="tiny muted mt-2">
+              Children open the lesson with this project already loaded — half-built sprites, a
+              backdrop, whatever they should start from. Build it in the Scratch editor, press
+              <strong> ⬇ Download .sb3</strong>, then upload the file here.
+            </p>
+
+            <div className="row mt-2 wrap">
+              <button type="button" className="btn btn-ghost btn-sm" onClick={uploadStarter} disabled={uploading}>
+                {uploading ? 'Uploading…' : starterPath ? 'Replace .sb3' : '⬆ Upload .sb3'}
+              </button>
+
+              {starterPath && (
+                <>
+                  <span className="badge badge-ok">✓ starting project attached</span>
+                  <button
+                    type="button"
+                    className="btn btn-quiet btn-sm"
+                    onClick={() => { removeLessonStarter(starterPath); setStarterPath(null) }}
+                  >
+                    Remove
+                  </button>
+                </>
+              )}
+            </div>
+
+            {!starterPath && (
+              <p className="tiny muted mt-2">
+                Without one, the lesson opens on an empty stage with the cat.
+              </p>
+            )}
           </div>
         )}
 

@@ -258,6 +258,33 @@ export async function deleteLesson(id) {
   return unwrap(await supabase.from('lessons').delete().eq('id', id))
 }
 
+const LESSON_BUCKET = 'lesson-assets'
+
+/**
+ * Upload the .sb3 a Scratch lesson starts from. The bucket is public-read, so
+ * every child following the lesson can fetch it without a signed URL.
+ */
+export async function uploadLessonStarter(file, authorId) {
+  const path = `${authorId}/${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}.sb3`
+
+  const { error } = await supabase.storage
+    .from(LESSON_BUCKET)
+    .upload(path, file, { upsert: true, contentType: 'application/x.scratch.sb3' })
+  if (error) throw new Error(error.message)
+
+  return path
+}
+
+export function lessonStarterUrl(path) {
+  if (!path) return null
+  return supabase.storage.from(LESSON_BUCKET).getPublicUrl(path).data.publicUrl
+}
+
+export async function removeLessonStarter(path) {
+  if (!path) return
+  await supabase.storage.from(LESSON_BUCKET).remove([path])
+}
+
 /* ------------------------------------------------------------------- admin */
 
 export async function listAllProfiles() {
