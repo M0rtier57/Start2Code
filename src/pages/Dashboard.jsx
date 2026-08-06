@@ -9,7 +9,7 @@ import {
 } from '../lib/api'
 import { downloadJson } from '../lib/download'
 import { tracks } from '../curriculum'
-import { BLANK_PYTHON } from '../curriculum/python'
+import { BLANK_PYGAME, BLANK_PYTHON } from '../curriculum/python'
 
 export default function Dashboard() {
   const navigate = useNavigate()
@@ -59,6 +59,27 @@ export default function Dashboard() {
       })
       logActivity(user.id, 'project_created', { project_id: project.id, kind: trackId, lesson: lesson?.id })
       navigate(`/${trackId}/${project.id}${lesson ? `?lesson=${lesson.id}` : ''}`)
+    } catch (error) {
+      toast.error(error.message)
+    }
+  }, [user, navigate, toast])
+
+  /**
+   * Start something with no lesson attached. Python has two real starting
+   * points — a plain console script and a pygame window — and picking the wrong
+   * one is a frustrating way to begin, so both are offered directly.
+   */
+  const startBlank = useCallback(async (trackId, flavour = 'console') => {
+    const isScratch = trackId === 'scratch'
+    const isGame = flavour === 'game'
+
+    const title = isScratch ? 'My Scratch project' : isGame ? 'My game' : 'My Python program'
+    const code = isScratch ? null : isGame ? BLANK_PYGAME : BLANK_PYTHON
+
+    try {
+      const project = await createProject({ kind: trackId, title, code, lessonId: null, ownerId: user.id })
+      logActivity(user.id, 'project_created', { project_id: project.id, kind: trackId, blank: flavour })
+      navigate(`/${trackId}/${project.id}`)
     } catch (error) {
       toast.error(error.message)
     }
@@ -114,8 +135,31 @@ export default function Dashboard() {
         </p>
       )}
 
+      {/* Start something new — the fastest possible route into an editor. */}
+      <h2 className="mt-6">Start something new</h2>
+      <div className="grid grid-auto mt-4">
+        <button className="tile" onClick={() => startBlank('scratch')}>
+          <span style={{ fontSize: '1.9rem' }}>🧩</span>
+          <h3 className="mt-2">Blank Scratch project</h3>
+          <p className="small muted mt-2">An empty stage and the block palette. Build whatever you like.</p>
+        </button>
+
+        <button className="tile" onClick={() => startBlank('python', 'console')}>
+          <span style={{ fontSize: '1.9rem' }}>🐍</span>
+          <h3 className="mt-2">Blank Python program</h3>
+          <p className="small muted mt-2">A code editor and a console. Starts instantly.</p>
+        </button>
+
+        <button className="tile" onClick={() => startBlank('python', 'game')}>
+          <span style={{ fontSize: '1.9rem' }}>🎮</span>
+          <h3 className="mt-2">Blank pygame game</h3>
+          <p className="small muted mt-2">A ready-made game window you can draw in straight away.</p>
+        </button>
+      </div>
+
       {/* Track summary */}
-      <div className="grid mt-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
+      <h2 className="mt-6">Your learning</h2>
+      <div className="grid mt-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
         {totals.map(({ track, done, total }) => (
           <div key={track.id} className="card">
             <div className="row-between">
@@ -144,7 +188,7 @@ export default function Dashboard() {
             <section key={track.id}>
               <div className="row-between">
                 <h2>{track.emoji} {track.name} lessons</h2>
-                <button className="btn btn-ghost btn-sm" onClick={() => start(track.id, null)}>
+                <button className="btn btn-ghost btn-sm" onClick={() => startBlank(track.id)}>
                   + Blank {track.name} project
                 </button>
               </div>
