@@ -65,7 +65,15 @@ export function CurriculumProvider({ children }) {
   useEffect(() => { refresh() }, [refresh])
 
   const value = useMemo(() => {
-    const custom = rows.filter((row) => !row.archived).map(fromRow)
+    const myId = session?.user?.id
+
+    const custom = rows
+      .filter((row) => !row.archived)
+      // An admin can read everyone's drafts, which is right for moderation but
+      // wrong for their own lesson list. Someone else's private draft is not
+      // part of anybody's curriculum.
+      .filter((row) => row.scope !== 'private' || row.author_id === myId)
+      .map(fromRow)
 
     const tracks = {}
     for (const trackId of ['scratch', 'python']) {
@@ -102,7 +110,7 @@ export function CurriculumProvider({ children }) {
     }
 
     return { tracks, rows, loading, refresh, getLesson, nextLesson }
-  }, [rows, loading, refresh])
+  }, [rows, loading, refresh, session])
 
   return <CurriculumContext.Provider value={value}>{children}</CurriculumContext.Provider>
 }

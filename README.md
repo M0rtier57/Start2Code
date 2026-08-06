@@ -155,10 +155,19 @@ Lessons come from two places and are merged at runtime by
 1. **Built-in** — the objects in `src/curriculum/`, which ship in the code.
 2. **Custom** — rows in the `lessons` table, written from inside the app.
 
-| Who | Can write | Seen by |
+Every lesson has one of three visibilities, chosen when writing it:
+
+| Visibility | Seen by | Who can set it |
 | --- | --- | --- |
-| Teacher | lessons for a class they teach | that class only |
-| Admin | lessons for everyone | everybody |
+| 🔒 **Only me** | nobody else — a draft | anyone |
+| 👩‍🏫 **One class** | every student in that class | the teacher of that class, and admins |
+| 🌍 **Everyone** | every student and teacher | admins only |
+
+New lessons start **private**, so nothing reaches children until it is deliberately
+shared. **Make private** pulls a shared lesson back out of sight without deleting it.
+
+A private lesson still shows in its *author's* own lesson list, so it can be opened
+and tried out before sharing.
 
 Teachers use **Classes → Lessons**; admins use **Admin → Lessons**.
 

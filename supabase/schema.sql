@@ -105,8 +105,9 @@ create index if not exists lesson_progress_user_idx on public.lesson_progress (u
 -- -----------------------------------------------------------------------------
 -- Custom lessons
 --
---   scope = 'class'  → written by a teacher, seen only by that class
---   scope = 'global' → written by an admin, seen by everybody
+--   scope = 'private' → a draft, seen only by whoever wrote it
+--   scope = 'class'   → written by a teacher, seen only by that class
+--   scope = 'global'  → written by an admin, seen by everybody
 --
 -- `lesson_key` is the stable id that lesson_progress rows point at. Reusing the
 -- key of a built-in lesson makes this row override it, which is how an admin
@@ -123,7 +124,7 @@ create table if not exists public.lessons (
   steps       jsonb not null default '[]'::jsonb,
   starter     text,          -- Python: the starting source code
   starter_path text,         -- Scratch: an .sb3 in the lesson-assets bucket
-  scope       text not null default 'class' check (scope in ('class', 'global')),
+  scope       text not null default 'private',
   class_id    uuid references public.classes (id) on delete cascade,
   author_id   uuid not null references public.profiles (id) on delete cascade,
   position    int not null default 0,
@@ -131,15 +132,25 @@ create table if not exists public.lessons (
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now(),
 
-  -- A class lesson needs a class; a global one must not have one.
+  -- A class lesson needs a class; private drafts and global lessons must not.
   constraint lessons_scope_class check (
-    (scope = 'class'  and class_id is not null) or
-    (scope = 'global' and class_id is null)
+    (scope = 'class' and class_id is not null) or
+    (scope in ('private', 'global') and class_id is null)
   )
 );
 
--- Added after the table shipped, so existing databases pick it up on a re-run.
+-- Added after the table shipped, so existing databases pick these up on a re-run.
 alter table public.lessons add column if not exists starter_path text;
+
+alter table public.lessons drop constraint if exists lessons_scope_check;
+alter table public.lessons add  constraint lessons_scope_check
+  check (scope in ('private', 'class', 'global'));
+
+alter table public.lessons drop constraint if exists lessons_scope_class;
+alter table public.lessons add  constraint lessons_scope_class check (
+  (scope = 'class' and class_id is not null) or
+  (scope in ('private', 'global') and class_id is null)
+);
 
 create index if not exists lessons_class_idx on public.lessons (class_id);
 create index if not exists lessons_scope_idx on public.lessons (scope);
@@ -156,14 +167,15 @@ create policy lessons_select on public.lessons for select
     or exists (select 1 from public.classes c where c.id = class_id and c.teacher_id = auth.uid())
   );
 
--- Only an admin may publish to everybody. A teacher may write lessons for a
--- class they actually teach.
+-- Anyone may keep private drafts. Publishing to a class requires teaching it;
+-- publishing to everyone requires being an admin.
 drop policy if exists lessons_insert on public.lessons;
 create policy lessons_insert on public.lessons for insert
   with check (
     author_id = auth.uid()
     and (
       public.is_admin()
+      or scope = 'private'
       or (
         scope = 'class'
         and exists (select 1 from public.classes c where c.id = class_id and c.teacher_id = auth.uid())
@@ -180,8 +192,13 @@ create policy lessons_update on public.lessons for update
     public.is_admin()
     or (
       author_id = auth.uid()
-      and scope = 'class'
-      and exists (select 1 from public.classes c where c.id = class_id and c.teacher_id = auth.uid())
+      and (
+        scope = 'private'
+        or (
+          scope = 'class'
+          and exists (select 1 from public.classes c where c.id = class_id and c.teacher_id = auth.uid())
+        )
+      )
     )
   );
 

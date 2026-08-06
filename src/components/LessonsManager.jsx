@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import LessonEditor from './LessonEditor'
 import { Empty, Modal, useToast } from './ui'
 import { useAuth } from '../lib/AuthContext'
-import { deleteLesson } from '../lib/api'
+import { deleteLesson, updateLesson } from '../lib/api'
 import { useCurriculum } from '../lib/CurriculumContext'
 import { pythonLessons, scratchLessons } from '../curriculum'
 
@@ -46,6 +46,17 @@ export default function LessonsManager({ classes = [] }) {
       toast.error(error.message)
     } finally {
       setConfirm(null)
+    }
+  }
+
+  /** Pull a lesson back out of sight without deleting it. */
+  const unpublish = async (row) => {
+    try {
+      await updateLesson(row.id, { scope: 'private', class_id: null })
+      toast.success('That lesson is private again — only you can see it')
+      refresh()
+    } catch (error) {
+      toast.error(error.message)
     }
   }
 
@@ -107,9 +118,35 @@ export default function LessonsManager({ classes = [] }) {
                       {isOverride && <span className="badge badge-brand mt-2">replaces a built-in lesson</span>}
                     </td>
                     <td>
-                      {row.scope === 'global'
-                        ? <span className="badge badge-ok">Everyone</span>
-                        : <span className="badge">{classes.find((c) => c.id === row.class_id)?.name ?? 'A class'}</span>}
+                      {row.scope === 'private' && <span className="badge">🔒 Only me</span>}
+                      {row.scope === 'global' && <span className="badge badge-ok">🌍 Everyone</span>}
+                      {row.scope === 'class' && (
+                        <span className="badge badge-brand">
+                          👩‍🏫 {classes.find((c) => c.id === row.class_id)?.name ?? 'A class'}
+                        </span>
+                      )}
+                      {row.scope === 'private' && owned && (
+                        <div className="mt-2">
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => setEditing(row)}
+                            title="Open the lesson to choose who can see it"
+                          >
+                            Share…
+                          </button>
+                        </div>
+                      )}
+                      {row.scope !== 'private' && owned && (
+                        <div className="mt-2">
+                          <button
+                            className="btn btn-quiet btn-sm"
+                            onClick={() => unpublish(row)}
+                            title="Hide it from everyone again"
+                          >
+                            Make private
+                          </button>
+                        </div>
+                      )}
                     </td>
                     <td className="num">{Array.isArray(row.steps) ? row.steps.length : 0}</td>
                     <td>

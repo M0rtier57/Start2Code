@@ -33,9 +33,8 @@ export default function LessonEditor({ lesson, builtIn, classes = [], canPublish
   const [starter, setStarter] = useState(seed?.starter ?? '')
   const [starterPath, setStarterPath] = useState(lesson?.starter_path ?? seed?.starterPath ?? null)
   const [uploading, setUploading] = useState(false)
-  const [scope, setScope] = useState(
-    lesson?.scope ?? (canPublishGlobal ? 'global' : 'class')
-  )
+  // New lessons start private, so nothing reaches children until it is ready.
+  const [scope, setScope] = useState(lesson?.scope ?? 'private')
   const [classId, setClassId] = useState(lesson?.class_id ?? classes[0]?.id ?? '')
   const [busy, setBusy] = useState(false)
 
@@ -185,8 +184,9 @@ export default function LessonEditor({ lesson, builtIn, classes = [], canPublish
           <label className="field grow">
             Who can see this lesson
             <select value={scope} onChange={(e) => setScope(e.target.value)}>
-              {canPublishGlobal && <option value="global">Everyone on Start2Code</option>}
-              <option value="class">One of my classes</option>
+              <option value="private">🔒 Only me — a draft</option>
+              <option value="class">👩‍🏫 One class</option>
+              {canPublishGlobal && <option value="global">🌍 Everyone on Start2Code</option>}
             </select>
           </label>
 
@@ -202,6 +202,12 @@ export default function LessonEditor({ lesson, builtIn, classes = [], canPublish
             </label>
           )}
         </div>
+
+        <p className="tiny muted" style={{ marginTop: -6 }}>
+          {scope === 'private' && 'Nobody else can see this yet. Change it here when you are ready to share.'}
+          {scope === 'class' && 'Every student in that class sees it in their lesson list.'}
+          {scope === 'global' && 'Every student and teacher on Start2Code sees it.'}
+        </p>
 
         {/* Steps */}
         <div>
