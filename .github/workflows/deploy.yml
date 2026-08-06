@@ -1,0 +1,83 @@
+# =============================================================================
+# Build Start2Code and publish the result to the `deploy` branch.
+#
+# Hostinger's shared-hosting Git integration copies a branch straight into
+# public_html and never runs a build step. So `main` stays source code, and this
+# workflow pushes the BUILT site to `deploy` — which is the branch Hostinger is
+# pointed at.
+#
+# One-time setup:
+#   1. GitHub → Settings → Secrets and variables → Actions → New repository secret
+#        VITE_SUPABASE_URL       = https://<your-project>.supabase.co
+#        VITE_SUPABASE_ANON_KEY  = <your anon key>
+#      (Vite bakes these into the built JavaScript at build time. The anon key is
+#       meant to be public — row level security is what protects the data.)
+#   2. hPanel → Website → Git: change the deployed branch from `main` to `deploy`.
+# =============================================================================
+name: Deploy to Hostinger
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:        # lets you re-deploy by hand from the Actions tab
+
+permissions:
+  contents: write           # needed to push the built site to `deploy`
+
+concurrency:
+  group: deploy
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$VITE_SUPABASE_URL" ] || [ -z "$VITE_SUPABASE_ANON_KEY" ]; then
+            echo "::error::The Supabase secrets are missing. Add VITE_SUPABASE_URL and"
+            echo "::error::VITE_SUPABASE_ANON_KEY under Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          npm run build
+
+      - name: Check the build looks deployable
+        run: |
+          test -f dist/index.html    || { echo "::error::dist/index.html missing"; exit 1; }
+          test -f dist/.htaccess     || { echo "::error::dist/.htaccess missing - SPA routing will 404"; exit 1; }
+          test -f dist/scratch.html  || { echo "::error::dist/scratch.html missing"; exit 1; }
+          test -f dist/scratch-gui.js || { echo "::error::dist/scratch-gui.js missing - the Scratch editor will not load"; exit 1; }
+          test -f dist/py-runtime.py || { echo "::error::dist/py-runtime.py missing - Python errors will not report"; exit 1; }
+          # The source entry point must NOT survive into the build.
+          if grep -q "/src/main.jsx" dist/index.html; then
+            echo "::error::dist/index.html still points at the source file - the build did not run properly"
+            exit 1
+          fi
+
+      - name: Publish to the deploy branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          publish_branch: deploy
+          # Hostinger serves this directly; keep hidden files like .htaccess.
+          enable_jekyll: true
+          force_orphan: true      # keeps the branch from growing forever
+          commit_message: "Deploy ${{ github.sha }}"

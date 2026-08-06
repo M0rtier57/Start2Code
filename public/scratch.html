@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Start2Code — Scratch</title>
+  <style>
+    html, body, #app { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
+    body { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; background: #e9f1fc; }
+
+    #boot {
+      position: absolute; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 18px;
+      background: #e9f1fc; color: #4c97ff; z-index: 50;
+    }
+    #boot .ring {
+      width: 46px; height: 46px; border-radius: 50%;
+      border: 5px solid #cfe0f7; border-top-color: #4c97ff;
+      animation: spin 0.9s linear infinite;
+    }
+    #boot p { font-size: 15px; font-weight: 600; color: #575e75; margin: 0; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #boot.hidden { display: none; }
+    #boot.failed .ring { display: none; }
+    #boot.failed p { color: #d63b3b; max-width: 460px; text-align: center; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <div id="boot">
+    <div class="ring"></div>
+    <p>Loading the block editor…</p>
+  </div>
+
+  <!--
+    The scratch-gui bundle in public/ is a UMD build compiled with react and
+    react-dom as *externals*. Its factory reads them off the global object under
+    the lowercase package names, so they must be aliased before it loads.
+  -->
+  <script src="/vendor/react.min.js"></script>
+  <script src="/vendor/react-dom.min.js"></script>
+  <script>
+    window.react = window.React;
+    window['react-dom'] = window.ReactDOM;
+  </script>
+  <script src="/scratch-gui.js"></script>
+  <script src="/scratch-host.js"></script>
+</body>
+</html>

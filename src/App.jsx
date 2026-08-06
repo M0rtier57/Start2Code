@@ -1,122 +1,95 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { NavLink, Navigate, Outlet, Route, Routes, useNavigate } from 'react-router-dom'
 
-function App() {
-  const [count, setCount] = useState(0)
+import { Avatar, LoadingScreen } from './components/ui'
+import { useAuth } from './lib/AuthContext'
+
+import AdminPanel from './pages/AdminPanel'
+import Dashboard from './pages/Dashboard'
+import Login from './pages/Login'
+import PythonWorkspace from './pages/PythonWorkspace'
+import ScratchWorkspace from './pages/ScratchWorkspace'
+import TeacherDashboard from './pages/TeacherDashboard'
+
+export default function App() {
+  const { session, loading } = useAuth()
+
+  if (loading) return <LoadingScreen label="Getting things ready…" />
+  if (!session) return <Login />
+
+  return (
+    <Routes>
+      {/* The editors are full-screen and deliberately sit outside the shell. */}
+      <Route path="/scratch/:projectId" element={<ScratchWorkspace />} />
+      <Route path="/python/:projectId" element={<PythonWorkspace />} />
+
+      <Route element={<Shell />}>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/classes" element={<RequireRole teacher><TeacherDashboard /></RequireRole>} />
+        <Route path="/admin" element={<RequireRole admin><AdminPanel /></RequireRole>} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Route>
+    </Routes>
+  )
+}
+
+function Shell() {
+  const { displayName, profile, isTeacher, isAdmin, signOut } = useAuth()
+  const navigate = useNavigate()
 
   return (
     <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+      <header className="app-header">
+        <div className="app-header-inner">
+          <button
+            className="logo"
+            onClick={() => navigate('/')}
+            style={{ background: 'none', border: 0, cursor: 'pointer', padding: 0 }}
+          >
+            <span className="logo-mark">&lt;/&gt;</span> Start2Code
+          </button>
 
-      <div className="ticks"></div>
+          <nav className="row" style={{ marginLeft: 12 }}>
+            <NavLink to="/" end className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+              My work
+            </NavLink>
+            {isTeacher && (
+              <NavLink to="/classes" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+                Classes
+              </NavLink>
+            )}
+            {isAdmin && (
+              <NavLink to="/admin" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+                Admin
+              </NavLink>
+            )}
+          </nav>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+          <span style={{ flex: 1 }} />
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
+          <div className="row">
+            <Avatar name={displayName} />
+            <div className="tiny" style={{ lineHeight: 1.3 }}>
+              <div style={{ fontWeight: 650 }}>{displayName}</div>
+              <div className="muted">{profile?.role ?? 'student'}</div>
+            </div>
+            <button className="btn btn-ghost btn-sm" onClick={signOut}>Log out</button>
+          </div>
+        </div>
+      </header>
+
+      <main><Outlet /></main>
     </>
   )
 }
 
-export default App
+/** Sends anyone without the right role back to their own dashboard. */
+function RequireRole({ children, teacher = false, admin = false }) {
+  const { isTeacher, isAdmin, profile } = useAuth()
+
+  // Wait for the profile before deciding — otherwise a slow load looks like a
+  // permission failure and bounces the user.
+  if (!profile) return <LoadingScreen />
+  if (admin && !isAdmin) return <Navigate to="/" replace />
+  if (teacher && !isTeacher) return <Navigate to="/" replace />
+  return children
+}
