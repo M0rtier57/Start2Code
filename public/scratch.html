@@ -23,6 +23,22 @@
     #boot.hidden { display: none; }
     #boot.failed .ring { display: none; }
     #boot.failed p { color: #d63b3b; max-width: 460px; text-align: center; line-height: 1.5; }
+
+    /*
+     * Hide the Scratch menu bar.
+     *
+     * Everything on it is either handled by the Start2Code toolbar above this
+     * frame (save, open, download, project name) or dead in this context
+     * (Share, "See project page", the scratch.mit.edu account menu).
+     *
+     * The class names are CSS-module hashes that change whenever the bundle is
+     * rebuilt, so match on the stable prefix rather than the full name.
+     *
+     * The body is sized as `calc(100% - menu bar height)`, so hiding the bar on
+     * its own leaves a 48px gap at the bottom — hence the height override.
+     */
+    [class*="menu-bar_menu-bar"] { display: none !important; }
+    [class*="gui_body-wrapper"]  { height: 100% !important; }
   </style>
 </head>
 <body>
