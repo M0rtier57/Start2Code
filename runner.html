@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Start2Code — Python runner</title>
+  <script type="module" src="https://pyscript.net/latest/core.js"></script>
+  <style>
+    html, body {
+      margin: 0; padding: 0; width: 100%; height: 100%;
+      background: #0f1117; overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      font-family: ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+    }
+
+    /* The stage keeps a 16:9 box no matter how the pane is resized. */
+    #stage-wrap {
+      width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+    }
+    canvas#game-canvas {
+      width: 100%; height: auto;
+      aspect-ratio: 16 / 9;
+      max-height: 100%; max-width: calc(100vh * 16 / 9);
+      display: block; background: #000;
+      border: 1px solid #2a2f3a; border-radius: 10px;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
+    }
+    body.console-mode #stage-wrap { display: none; }
+
+    #idle {
+      color: #6b7280; font-size: 14px; text-align: center;
+      padding: 24px; line-height: 1.6;
+    }
+    #idle.hidden { display: none; }
+    .spinner {
+      width: 30px; height: 30px; margin: 0 auto 14px;
+      border: 3px solid #262b36; border-top-color: #5b9dff;
+      border-radius: 50%; animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* PyScript injects wrappers around the canvas; keep them out of the way. */
+    py-game, div:has(> canvas#game-canvas) {
+      display: contents !important;
+    }
+    py-splashscreen, .py-error { display: none !important; }
+  </style>
+</head>
+<body>
+  <div id="idle"><div class="spinner"></div>Starting Python…</div>
+  <div id="stage-wrap"><canvas id="game-canvas" width="1280" height="720"></canvas></div>
+
+  <script>
+  /**
+   * Start2Code Python runner.
+   *
+   * The parent React app owns the console UI; this frame only executes code and
+   * reports what happened.
+   *
+   *  parent -> runner : { source: 's2c', type: 'run', code, mode: 'game'|'console' }
+   *                     { source: 's2c', type: 'ping' }
+   *  runner -> parent : { source: 's2c-python', type: 'boot' | 'started' | 'stdout'
+   *                                            | 'stderr' | 'finished' | 'input-request' }
+   */
+  (function () {
+    'use strict';
+    var SELF_TAG = 's2c-python';
+
+    function post(msg) {
+      msg.source = SELF_TAG;
+      window.parent.postMessage(msg, '*');
+    }
+
+    var idle = document.getElementById('idle');
+    function setIdle(html) {
+      if (!html) { idle.classList.add('hidden'); return; }
+      idle.classList.remove('hidden');
+      idle.innerHTML = html;
+    }
+
+    // -------------------------------------------------------------------------
+    // Callbacks the Python prelude reaches back into.
+    // -------------------------------------------------------------------------
+    var buffer = [];
+    var flushTimer = null;
+
+    // Output is batched: a tight print loop would otherwise post thousands of
+    // messages and lock up the parent. This uses a timer rather than
+    // requestAnimationFrame on purpose — rAF is suspended while the frame is
+    // hidden or not compositing, which would strand the console output.
+    function flush() {
+      if (flushTimer !== null) { clearTimeout(flushTimer); flushTimer = null; }
+      if (!buffer.length) return;
+      var batch = buffer;
+      buffer = [];
+      post({ type: 'output', lines: batch });
+    }
+
+    window.s2cWrite = function (stream, text) {
+      buffer.push({ stream: stream, text: String(text) });
+      // Cap the backlog so a runaway loop cannot exhaust memory.
+      if (buffer.length > 4000) buffer.splice(0, buffer.length - 4000);
+      if (flushTimer === null) flushTimer = setTimeout(flush, 30);
+    };
+
+    window.s2cInput = function (prompt) {
+      flush(); // make sure the question is on screen before we block
+      var answer = window.prompt(prompt && prompt.length ? prompt : 'Your program is asking for input:');
+      return answer === null ? null : String(answer);
+    };
+
+    window.s2cDone = function (ok, summary) {
+      flush();
+      post({ type: 'finished', ok: !!ok, summary: summary ? String(summary) : '' });
+    };
+
+    window.s2cStarted = function () {
+      setIdle('');
+      post({ type: 'started' });
+    };
+
+    // -------------------------------------------------------------------------
+    // Execution
+    //
+    // The student's code is NOT injected as a script tag. PyScript reports an
+    // uncaught Python exception by throwing a PythonError to console.error,
+    // where neither stderr nor window.onerror can see it. Instead py-runtime.py
+    // compiles and execs the source itself, so it can catch everything and
+    // report a readable error. Compiling under the filename "your_code.py"
+    // keeps the line numbers in tracebacks exactly the student's own.
+    // -------------------------------------------------------------------------
+    var hasRun = false;
+
+    function run(code, mode) {
+      if (hasRun) {
+        // Pyodide cannot cleanly tear down a half-finished program, so every
+        // run starts from a fresh frame; the parent reloads us.
+        post({ type: 'needs-reload' });
+        return;
+      }
+      hasRun = true;
+
+      var isGame = mode === 'game';
+      document.body.classList.toggle('console-mode', !isGame);
+      setIdle('<div class="spinner"></div>Starting Python…' +
+              (isGame ? '<br/>Loading pygame — this takes a few seconds the first time.' : ''));
+
+      window.s2cSource = code;
+
+      fetch('/py-runtime.py')
+        .then(function (res) {
+          if (!res.ok) throw new Error('py-runtime.py could not be loaded (' + res.status + ')');
+          return res.text();
+        })
+        .then(function (runtime) {
+          var tag = document.createElement('script');
+          tag.type = isGame ? 'py-game' : 'py';
+          if (isGame) tag.setAttribute('target', 'game-canvas');
+          tag.textContent = runtime;
+          document.body.appendChild(tag);
+        })
+        .catch(function (err) {
+          window.s2cWrite('err', String(err.message || err) + '\n');
+          window.s2cDone(false, 'startup');
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // Error backstops. Uncaught Python exceptions are printed to stderr, which
+    // the shim already captures; these catch failures outside that path
+    // (PyScript boot problems, JS-level errors, failed package downloads).
+    // -------------------------------------------------------------------------
+    window.addEventListener('error', function (e) {
+      var message = (e.error && e.error.message) || e.message || 'Unknown error';
+      window.s2cWrite('err', message + '\n');
+      window.s2cDone(false, message);
+    });
+
+    window.addEventListener('unhandledrejection', function (e) {
+      var reason = e.reason;
+      var message = (reason && (reason.message || reason.toString())) || 'Unknown error';
+      window.s2cWrite('err', message + '\n');
+      window.s2cDone(false, message);
+    });
+
+    document.addEventListener('py:error', function (e) {
+      window.s2cWrite('err', String((e.detail && e.detail.message) || e.detail || 'Python error') + '\n');
+    });
+
+    // -------------------------------------------------------------------------
+    window.addEventListener('message', function (event) {
+      var data = event.data;
+      if (!data || data.source !== 's2c') return;
+      if (data.type === 'run') run(String(data.code || ''), data.mode);
+    });
+
+    setIdle('<div class="spinner"></div>Ready — press Run.');
+    post({ type: 'boot' });
+  })();
+  </script>
+</body>
+</html>
