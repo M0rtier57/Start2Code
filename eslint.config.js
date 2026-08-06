@@ -32,4 +32,9 @@ export default defineConfig([
       'react-hooks/set-state-in-effect': 'off',
     },
   },
+  {
+    // Build config runs in Node, not the browser.
+    files: ['*.config.js'],
+    languageOptions: { globals: globals.node },
+  },
 ])
