@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { saveProgress } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
-import { nextLesson } from '../curriculum'
+import { useCurriculum } from '../lib/CurriculumContext'
 import { ProgressBar } from './ui'
 
 /**
@@ -12,6 +12,7 @@ import { ProgressBar } from './ui'
  */
 export default function LessonPanel({ track, lesson, onPickLesson, onClose }) {
   const { user } = useAuth()
+  const { nextLesson } = useCurriculum()
 
   const storageKey = user && lesson ? `s2c:steps:${user.id}:${lesson.id}` : null
 

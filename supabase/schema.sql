@@ -103,6 +103,89 @@ create table if not exists public.lesson_progress (
 create index if not exists lesson_progress_user_idx on public.lesson_progress (user_id);
 
 -- -----------------------------------------------------------------------------
+-- Custom lessons
+--
+--   scope = 'class'  → written by a teacher, seen only by that class
+--   scope = 'global' → written by an admin, seen by everybody
+--
+-- `lesson_key` is the stable id that lesson_progress rows point at. Reusing the
+-- key of a built-in lesson makes this row override it, which is how an admin
+-- edits lessons that ship in the code.
+-- -----------------------------------------------------------------------------
+create table if not exists public.lessons (
+  id          uuid primary key default gen_random_uuid(),
+  lesson_key  text not null unique,
+  track       text not null check (track in ('scratch', 'python')),
+  title       text not null,
+  blurb       text not null default '',
+  minutes     int  not null default 15,
+  mode        text not null default 'console' check (mode in ('console', 'game')),
+  steps       jsonb not null default '[]'::jsonb,
+  starter     text,
+  scope       text not null default 'class' check (scope in ('class', 'global')),
+  class_id    uuid references public.classes (id) on delete cascade,
+  author_id   uuid not null references public.profiles (id) on delete cascade,
+  position    int not null default 0,
+  archived    boolean not null default false,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now(),
+
+  -- A class lesson needs a class; a global one must not have one.
+  constraint lessons_scope_class check (
+    (scope = 'class'  and class_id is not null) or
+    (scope = 'global' and class_id is null)
+  )
+);
+
+create index if not exists lessons_class_idx on public.lessons (class_id);
+create index if not exists lessons_scope_idx on public.lessons (scope);
+
+alter table public.lessons enable row level security;
+
+drop policy if exists lessons_select on public.lessons;
+create policy lessons_select on public.lessons for select
+  using (
+    scope = 'global'
+    or author_id = auth.uid()
+    or public.is_admin()
+    or public.is_member_of(class_id)
+    or exists (select 1 from public.classes c where c.id = class_id and c.teacher_id = auth.uid())
+  );
+
+-- Only an admin may publish to everybody. A teacher may write lessons for a
+-- class they actually teach.
+drop policy if exists lessons_insert on public.lessons;
+create policy lessons_insert on public.lessons for insert
+  with check (
+    author_id = auth.uid()
+    and (
+      public.is_admin()
+      or (
+        scope = 'class'
+        and exists (select 1 from public.classes c where c.id = class_id and c.teacher_id = auth.uid())
+      )
+    )
+  );
+
+-- The `with check` clause repeats the insert rule so a teacher cannot edit
+-- their own class lesson into a global one.
+drop policy if exists lessons_update on public.lessons;
+create policy lessons_update on public.lessons for update
+  using (author_id = auth.uid() or public.is_admin())
+  with check (
+    public.is_admin()
+    or (
+      author_id = auth.uid()
+      and scope = 'class'
+      and exists (select 1 from public.classes c where c.id = class_id and c.teacher_id = auth.uid())
+    )
+  );
+
+drop policy if exists lessons_delete on public.lessons;
+create policy lessons_delete on public.lessons for delete
+  using (author_id = auth.uid() or public.is_admin());
+
+-- -----------------------------------------------------------------------------
 -- Activity log — powers the teacher timeline
 -- -----------------------------------------------------------------------------
 create table if not exists public.activity_events (
@@ -373,4 +456,8 @@ create trigger projects_touch before update on public.projects
 
 drop trigger if exists progress_touch on public.lesson_progress;
 create trigger progress_touch before update on public.lesson_progress
+  for each row execute function public.touch_updated_at();
+
+drop trigger if exists lessons_touch on public.lessons;
+create trigger lessons_touch before update on public.lessons
   for each row execute function public.touch_updated_at();

@@ -8,7 +8,7 @@ import {
   downloadScratchFile, getProject, logActivity, renameProject, saveScratchFile
 } from '../lib/api'
 import { downloadBlob, pickFile, toFilename } from '../lib/download'
-import { getLesson, scratchLessons } from '../curriculum'
+import { useCurriculum } from '../lib/CurriculumContext'
 
 /** Waits for a reply to one request on the bridge. */
 function requestFromFrame(frame, message, expectType, timeout = 30_000) {
@@ -38,6 +38,7 @@ export default function ScratchWorkspace() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const toast = useToast()
+  const { getLesson, tracks } = useCurriculum()
 
   const [project, setProject] = useState(null)
   const [title, setTitle] = useState('')
@@ -52,7 +53,9 @@ export default function ScratchWorkspace() {
 
   const lesson = useMemo(
     () => getLesson('scratch', project?.lesson_id ?? params.get('lesson')),
-    [project?.lesson_id, params]
+    // getLesson changes identity once the custom lessons have loaded; without
+    // it here, a database lesson would never show up in the panel.
+    [getLesson, project?.lesson_id, params]
   )
 
   /* ------------------------------------------------------------------ load */
@@ -238,7 +241,7 @@ export default function ScratchWorkspace() {
       {pickerOpen && (
         <Modal title="Choose a lesson" onClose={() => setPickerOpen(false)} wide>
           <div className="grid grid-auto">
-            {scratchLessons.map((item) => (
+            {tracks.scratch.lessons.map((item) => (
               <button
                 key={item.id}
                 className="tile"

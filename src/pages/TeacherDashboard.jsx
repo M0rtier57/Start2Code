@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
+import LessonsManager from '../components/LessonsManager'
 import { Avatar, Empty, KindBadge, LoadingScreen, Modal, ProgressBar, timeAgo, useToast } from '../components/ui'
 import { useAuth } from '../lib/AuthContext'
 import {
@@ -7,7 +8,7 @@ import {
   listClassMembers, listMyClasses, listProgressFor, listProjectsFor, removeStudent
 } from '../lib/api'
 import { downloadBlob, downloadText, toFilename } from '../lib/download'
-import { tracks } from '../curriculum'
+import { useCurriculum } from '../lib/CurriculumContext'
 
 export default function TeacherDashboard() {
   const toast = useToast()
@@ -16,6 +17,7 @@ export default function TeacherDashboard() {
   const [activeId, setActiveId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [newOpen, setNewOpen] = useState(false)
+  const [section, setSection] = useState('classes')   // classes | lessons
 
   const refresh = useCallback(async () => {
     try {
@@ -41,13 +43,28 @@ export default function TeacherDashboard() {
     <div className="page">
       <div className="row-between wrap">
         <div>
-          <h1>Classes</h1>
-          <p className="muted mt-2">Track how your students are getting on.</p>
+          <h1>{section === 'classes' ? 'Classes' : 'My lessons'}</h1>
+          <p className="muted mt-2">
+            {section === 'classes'
+              ? 'Track how your students are getting on.'
+              : 'Write your own lessons for the classes you teach.'}
+          </p>
         </div>
-        <button className="btn" onClick={() => setNewOpen(true)}>+ New class</button>
+        {section === 'classes' && <button className="btn" onClick={() => setNewOpen(true)}>+ New class</button>}
       </div>
 
-      {classes.length === 0 ? (
+      <div className="tabs mt-4">
+        <button className={`tab ${section === 'classes' ? 'active' : ''}`} onClick={() => setSection('classes')}>
+          Classes
+        </button>
+        <button className={`tab ${section === 'lessons' ? 'active' : ''}`} onClick={() => setSection('lessons')}>
+          Lessons
+        </button>
+      </div>
+
+      {section === 'lessons' ? (
+        <LessonsManager classes={classes} />
+      ) : classes.length === 0 ? (
         <div className="mt-6">
           <Empty emoji="🏫" title="No classes yet"
                  action={<button className="btn" onClick={() => setNewOpen(true)}>Create your first class</button>}>
@@ -93,6 +110,7 @@ export default function TeacherDashboard() {
 function ClassDetail({ klass, onChanged }) {
   const toast = useToast()
   const { isAdmin } = useAuth()
+  const { tracks } = useCurriculum()
 
   const [students, setStudents] = useState([])
   const [progress, setProgress] = useState([])
@@ -325,6 +343,7 @@ function ClassDetail({ klass, onChanged }) {
 /* -------------------------------------------------------------------------- */
 
 function LessonMatrix({ students, byStudent }) {
+  const { tracks } = useCurriculum()
   const [track, setTrack] = useState('python')
   const lessons = tracks[track].lessons
 

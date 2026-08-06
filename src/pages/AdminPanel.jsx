@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
+import LessonsManager from '../components/LessonsManager'
 import { Avatar, LoadingScreen, timeAgo, useToast } from '../components/ui'
 import { useAuth } from '../lib/AuthContext'
-import { listAllProfiles, setUserRole } from '../lib/api'
-import { tracks } from '../curriculum'
+import { listAllProfiles, listMyClasses, setUserRole } from '../lib/api'
+import { useCurriculum } from '../lib/CurriculumContext'
 
 /**
  * Admin-only view: who is on the platform and what they are allowed to do.
@@ -13,15 +14,20 @@ import { tracks } from '../curriculum'
 export default function AdminPanel() {
   const { user } = useAuth()
   const toast = useToast()
+  const { tracks } = useCurriculum()
 
   const [people, setPeople] = useState([])
+  const [classes, setClasses] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('')
   const [roleFilter, setRoleFilter] = useState('all')
+  const [section, setSection] = useState('people')   // people | lessons
 
   const load = useCallback(async () => {
     try {
-      setPeople(await listAllProfiles())
+      const [profiles, classRows] = await Promise.all([listAllProfiles(), listMyClasses()])
+      setPeople(profiles)
+      setClasses(classRows)
     } catch (error) {
       toast.error(error.message)
     } finally {
@@ -72,7 +78,20 @@ export default function AdminPanel() {
         <StatCard label="Lessons available" value={Object.values(tracks).reduce((sum, t) => sum + t.lessons.length, 0)} />
       </div>
 
-      <div className="row mt-6 wrap">
+      <div className="tabs mt-6">
+        <button className={`tab ${section === 'people' ? 'active' : ''}`} onClick={() => setSection('people')}>
+          People
+        </button>
+        <button className={`tab ${section === 'lessons' ? 'active' : ''}`} onClick={() => setSection('lessons')}>
+          Lessons
+        </button>
+      </div>
+
+      {section === 'lessons' && <LessonsManager classes={classes} />}
+
+      {section === 'people' && (
+      <>
+      <div className="row wrap">
         <input
           placeholder="Search by name or email…"
           value={filter}
@@ -127,6 +146,8 @@ export default function AdminPanel() {
       </div>
 
       {visible.length === 0 && <p className="muted center mt-4">Nobody matches that search.</p>}
+      </>
+      )}
     </div>
   )
 }

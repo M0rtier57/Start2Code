@@ -1,0 +1,244 @@
+import { useState } from 'react'
+import Editor from '@monaco-editor/react'
+
+import { Modal, useToast } from './ui'
+import { useAuth } from '../lib/AuthContext'
+import { createLesson, makeLessonKey, updateLesson } from '../lib/api'
+import { BLANK_PYGAME, BLANK_PYTHON } from '../curriculum/python'
+
+/**
+ * Create or edit a lesson.
+ *
+ * `lesson` is a row from the lessons table when editing, or null when creating.
+ * `builtIn` seeds the form from a lesson that ships in the code — that is how an
+ * admin customises one: it saves under the same key, and the merge in
+ * CurriculumContext then prefers this version everywhere.
+ */
+export default function LessonEditor({ lesson, builtIn, classes = [], canPublishGlobal, onClose, onSaved }) {
+  const { user } = useAuth()
+  const toast = useToast()
+
+  const seed = lesson ?? builtIn ?? null
+  const isEditing = Boolean(lesson)
+
+  const [track, setTrack] = useState(seed?.track ?? 'python')
+  const [title, setTitle] = useState(seed?.title ?? '')
+  const [blurb, setBlurb] = useState(seed?.blurb ?? '')
+  const [minutes, setMinutes] = useState(seed?.minutes ?? 15)
+  const [mode, setMode] = useState(seed?.mode ?? 'console')
+  const [steps, setSteps] = useState(
+    seed?.steps?.length ? [...seed.steps] : ['']
+  )
+  const [starter, setStarter] = useState(seed?.starter ?? '')
+  const [scope, setScope] = useState(
+    lesson?.scope ?? (canPublishGlobal ? 'global' : 'class')
+  )
+  const [classId, setClassId] = useState(lesson?.class_id ?? classes[0]?.id ?? '')
+  const [busy, setBusy] = useState(false)
+
+  const isPython = track === 'python'
+
+  const setStep = (index, value) =>
+    setSteps((current) => current.map((step, i) => (i === index ? value : step)))
+
+  const addStep = () => setSteps((current) => [...current, ''])
+
+  const removeStep = (index) =>
+    setSteps((current) => (current.length === 1 ? [''] : current.filter((_, i) => i !== index)))
+
+  const moveStep = (index, delta) =>
+    setSteps((current) => {
+      const target = index + delta
+      if (target < 0 || target >= current.length) return current
+      const next = [...current]
+      ;[next[index], next[target]] = [next[target], next[index]]
+      return next
+    })
+
+  const useTemplate = () => setStarter(mode === 'game' ? BLANK_PYGAME : BLANK_PYTHON)
+
+  const submit = async (event) => {
+    event.preventDefault()
+
+    const cleanSteps = steps.map((step) => step.trim()).filter(Boolean)
+    if (!title.trim()) return toast.error('Give the lesson a title.')
+    if (cleanSteps.length === 0) return toast.error('Add at least one step.')
+    if (scope === 'class' && !classId) return toast.error('Choose which class this lesson is for.')
+
+    const payload = {
+      track,
+      title: title.trim(),
+      blurb: blurb.trim(),
+      minutes: Number(minutes) || 15,
+      mode: isPython ? mode : 'console',
+      steps: cleanSteps,
+      starter: isPython ? starter : null,
+      scope,
+      class_id: scope === 'class' ? classId : null
+    }
+
+    setBusy(true)
+    try {
+      if (isEditing) {
+        await updateLesson(lesson.id, payload)
+        toast.success('Lesson updated')
+      } else {
+        await createLesson({
+          ...payload,
+          // Reusing a built-in key makes this row override that lesson.
+          lesson_key: builtIn ? builtIn.id : makeLessonKey(track),
+          author_id: user.id
+        })
+        toast.success(builtIn ? 'Built-in lesson customised' : 'Lesson created')
+      }
+      onSaved?.()
+    } catch (error) {
+      toast.error(error.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const heading = isEditing
+    ? 'Edit lesson'
+    : builtIn ? `Customise “${builtIn.title}”` : 'New lesson'
+
+  return (
+    <Modal title={heading} onClose={onClose} wide>
+      <form onSubmit={submit} className="col" style={{ gap: 16 }}>
+        {builtIn && !isEditing && (
+          <p className="small" style={{ background: 'var(--brand-soft)', padding: 12, borderRadius: 10 }}>
+            This saves your own version of a built-in lesson. Everyone who can see it will get
+            your version instead. Student progress is kept, because the lesson keeps its identity.
+          </p>
+        )}
+
+        <div className="row wrap" style={{ gap: 12, alignItems: 'flex-start' }}>
+          <label className="field grow">
+            Track
+            <select
+              value={track}
+              onChange={(e) => setTrack(e.target.value)}
+              disabled={Boolean(builtIn) || isEditing}
+              title={builtIn || isEditing ? 'The track cannot change once a lesson exists' : undefined}
+            >
+              <option value="python">🐍 Python</option>
+              <option value="scratch">🧩 Scratch</option>
+            </select>
+          </label>
+
+          <label className="field" style={{ width: 130 }}>
+            Minutes
+            <input type="number" min="5" max="120" value={minutes} onChange={(e) => setMinutes(e.target.value)} />
+          </label>
+
+          {isPython && (
+            <label className="field" style={{ width: 190 }}>
+              Runs as
+              <select value={mode} onChange={(e) => setMode(e.target.value)}>
+                <option value="console">Console program</option>
+                <option value="game">pygame window</option>
+              </select>
+            </label>
+          )}
+        </div>
+
+        <label className="field">
+          Title
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Make a bouncing ball" required />
+        </label>
+
+        <label className="field">
+          One-line description
+          <input value={blurb} onChange={(e) => setBlurb(e.target.value)} placeholder="Move a ball around and make it bounce off the walls." />
+        </label>
+
+        {/* Who can see it */}
+        <div className="row wrap" style={{ gap: 12, alignItems: 'flex-start' }}>
+          <label className="field grow">
+            Who can see this lesson
+            <select value={scope} onChange={(e) => setScope(e.target.value)}>
+              {canPublishGlobal && <option value="global">Everyone on Start2Code</option>}
+              <option value="class">One of my classes</option>
+            </select>
+          </label>
+
+          {scope === 'class' && (
+            <label className="field grow">
+              Class
+              <select value={classId} onChange={(e) => setClassId(e.target.value)}>
+                <option value="">Choose a class…</option>
+                {classes.map((item) => (
+                  <option key={item.id} value={item.id}>{item.name}</option>
+                ))}
+              </select>
+            </label>
+          )}
+        </div>
+
+        {/* Steps */}
+        <div>
+          <div className="row-between">
+            <label className="field" style={{ marginBottom: 0 }}>Steps</label>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={addStep}>+ Add step</button>
+          </div>
+          <p className="tiny muted mt-2">
+            One instruction per step — children tick them off. Wrap code in `backticks`.
+          </p>
+
+          <div className="col mt-2" style={{ gap: 8 }}>
+            {steps.map((step, index) => (
+              <div key={index} className="row" style={{ gap: 6 }}>
+                <span className="badge" style={{ minWidth: 26, justifyContent: 'center' }}>{index + 1}</span>
+                <input
+                  value={step}
+                  onChange={(e) => setStep(index, e.target.value)}
+                  placeholder="Press the green flag and watch what happens."
+                />
+                <button type="button" className="btn btn-quiet btn-sm" onClick={() => moveStep(index, -1)} disabled={index === 0} aria-label="Move up">↑</button>
+                <button type="button" className="btn btn-quiet btn-sm" onClick={() => moveStep(index, 1)} disabled={index === steps.length - 1} aria-label="Move down">↓</button>
+                <button type="button" className="btn btn-quiet btn-sm" onClick={() => removeStep(index)} aria-label="Remove step">✕</button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Starter code */}
+        {isPython && (
+          <div>
+            <div className="row-between">
+              <label className="field" style={{ marginBottom: 0 }}>Starting code</label>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={useTemplate}>
+                Use the {mode === 'game' ? 'pygame' : 'console'} template
+              </button>
+            </div>
+            <p className="tiny muted mt-2">This is what the child sees when they open the lesson.</p>
+            <div className="mt-2" style={{ border: '1px solid var(--line)', borderRadius: 10, overflow: 'hidden' }}>
+              <Editor
+                height="260px"
+                defaultLanguage="python"
+                theme="vs-dark"
+                value={starter}
+                onChange={(value) => setStarter(value ?? '')}
+                options={{
+                  fontSize: 13,
+                  minimap: { enabled: false },
+                  automaticLayout: true,
+                  scrollBeyondLastLine: false,
+                  tabSize: 4
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        <div className="row" style={{ justifyContent: 'flex-end' }}>
+          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button type="submit" className="btn" disabled={busy}>
+            {busy ? 'Saving…' : isEditing ? 'Save changes' : 'Create lesson'}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  )
+}

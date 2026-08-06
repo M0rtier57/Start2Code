@@ -224,6 +224,40 @@ export async function listActivityFor(studentIds, limit = 60) {
   )
 }
 
+/* ----------------------------------------------------------------- lessons */
+
+/**
+ * Every lesson the current user is allowed to see: global ones, lessons for
+ * classes they are in, and their own drafts. RLS decides which rows come back.
+ */
+export async function listLessons() {
+  return unwrap(
+    await supabase
+      .from('lessons')
+      .select('*')
+      .order('position', { ascending: true })
+      .order('created_at', { ascending: true })
+  )
+}
+
+/** Keys must be unique and stable — progress rows point at them. */
+export function makeLessonKey(track) {
+  const random = Math.random().toString(36).slice(2, 8)
+  return `custom-${track}-${Date.now().toString(36)}${random}`
+}
+
+export async function createLesson(lesson) {
+  return unwrap(await supabase.from('lessons').insert(lesson).select().single())
+}
+
+export async function updateLesson(id, patch) {
+  return unwrap(await supabase.from('lessons').update(patch).eq('id', id).select().single())
+}
+
+export async function deleteLesson(id) {
+  return unwrap(await supabase.from('lessons').delete().eq('id', id))
+}
+
 /* ------------------------------------------------------------------- admin */
 
 export async function listAllProfiles() {

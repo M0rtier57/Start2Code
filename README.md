@@ -147,7 +147,33 @@ Nothing is ever only in the browser:
 
 ---
 
-## Editing the lessons
+## Custom lessons
+
+Lessons come from two places and are merged at runtime by
+[`CurriculumContext`](src/lib/CurriculumContext.jsx):
+
+1. **Built-in** — the objects in `src/curriculum/`, which ship in the code.
+2. **Custom** — rows in the `lessons` table, written from inside the app.
+
+| Who | Can write | Seen by |
+| --- | --- | --- |
+| Teacher | lessons for a class they teach | that class only |
+| Admin | lessons for everyone | everybody |
+
+Teachers use **Classes → Lessons**; admins use **Admin → Lessons**.
+
+### Editing a built-in lesson
+
+An admin can press **Customise** on any built-in lesson. That saves a database row
+using the *same* `lesson_key`, and the merge prefers the database version — so the
+edit takes effect everywhere without a deploy, and existing student progress still
+matches because the lesson keeps its identity. Deleting the custom version restores
+the original.
+
+`lesson_key` is what `lesson_progress` rows point at, so never reuse a key for
+different content.
+
+## Editing the built-in lessons in code
 
 Lessons are plain objects in `src/curriculum/`. To add a Python lesson, append to
 `pythonLessons`:

@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App.jsx'
 import { ToastProvider } from './components/ui'
 import { AuthProvider } from './lib/AuthContext'
+import { CurriculumProvider } from './lib/CurriculumContext'
 import './index.css'
 
 createRoot(document.getElementById('root')).render(
@@ -12,7 +13,9 @@ createRoot(document.getElementById('root')).render(
     <BrowserRouter>
       <ToastProvider>
         <AuthProvider>
-          <App />
+          <CurriculumProvider>
+            <App />
+          </CurriculumProvider>
         </AuthProvider>
       </ToastProvider>
     </BrowserRouter>

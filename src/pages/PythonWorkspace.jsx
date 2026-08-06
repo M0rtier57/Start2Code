@@ -8,7 +8,7 @@ import { LoadingScreen, Modal, useToast } from '../components/ui'
 import { useAuth } from '../lib/AuthContext'
 import { getProject, logActivity, renameProject, savePythonCode } from '../lib/api'
 import { downloadText, toFilename } from '../lib/download'
-import { getLesson, pythonLessons } from '../curriculum'
+import { useCurriculum } from '../lib/CurriculumContext'
 
 const AUTOSAVE_DELAY = 2500
 
@@ -18,6 +18,7 @@ export default function PythonWorkspace() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const toast = useToast()
+  const { getLesson, tracks } = useCurriculum()
 
   const [project, setProject] = useState(null)
   const [code, setCode] = useState('')
@@ -37,7 +38,9 @@ export default function PythonWorkspace() {
 
   const lesson = useMemo(
     () => getLesson('python', project?.lesson_id ?? params.get('lesson')),
-    [project?.lesson_id, params]
+    // getLesson changes identity once the custom lessons have loaded; without
+    // it here, a database lesson would never show up in the panel.
+    [getLesson, project?.lesson_id, params]
   )
 
   // Lessons up to the pygame ones only need a console; loading pygame for them
@@ -299,7 +302,7 @@ export default function PythonWorkspace() {
       {pickerOpen && (
         <Modal title="Choose a lesson" onClose={() => setPickerOpen(false)} wide>
           <div className="grid grid-auto">
-            {pythonLessons.map((item) => (
+            {tracks.python.lessons.map((item) => (
               <button
                 key={item.id}
                 className="tile"

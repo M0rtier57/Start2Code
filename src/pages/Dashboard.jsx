@@ -8,13 +8,14 @@ import {
   listMyProgress, listMyProjects, logActivity
 } from '../lib/api'
 import { downloadJson } from '../lib/download'
-import { tracks } from '../curriculum'
+import { useCurriculum } from '../lib/CurriculumContext'
 import { BLANK_PYGAME, BLANK_PYTHON } from '../curriculum/python'
 
 export default function Dashboard() {
   const navigate = useNavigate()
   const { user, displayName } = useAuth()
   const toast = useToast()
+  const { tracks } = useCurriculum()
 
   const [projects, setProjects] = useState([])
   const [progress, setProgress] = useState([])
