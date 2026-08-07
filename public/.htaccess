@@ -35,6 +35,16 @@
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
+  # A MISSING asset must 404, never fall through to index.html.
+  #
+  # Vite fingerprints its bundles, so the filename changes on every deploy. A
+  # browser holding a cached index.html asks for the previous bundle; if that
+  # request is answered with index.html, the browser parses HTML as JavaScript
+  # and throws "Uncaught SyntaxError: Unexpected token '<'" — a confusing error
+  # a long way from its cause. A plain 404 is honest, and lets the recovery
+  # handler in index.html notice and reload.
+  RewriteRule \.(js|mjs|css|map|json|wasm|py|png|jpe?g|gif|svg|ico|webp|woff2?|ttf|eot|mp3|wav|sb3)$ - [L,R=404]
+
   RewriteRule ^ index.html [L]
 </IfModule>
 

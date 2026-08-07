@@ -8,6 +8,11 @@ import { AuthProvider } from './lib/AuthContext'
 import { CurriculumProvider } from './lib/CurriculumContext'
 import './index.css'
 
+// The app started, so whatever the recovery handler in index.html was worried
+// about is resolved. Clearing it here — rather than on window load — means a
+// build that never boots cannot reload in a loop.
+sessionStorage.removeItem('s2c:recovering')
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>

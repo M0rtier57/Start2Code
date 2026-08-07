@@ -20,6 +20,45 @@
   </head>
   <body>
     <div id="root"></div>
+
+    <script>
+      /*
+       * Recover from a stale cached page after a deploy.
+       *
+       * Vite gives each build a fingerprinted bundle name. A tab that was open
+       * across a deploy still holds the previous index.html, so it asks for a
+       * bundle that no longer exists and the app never starts — either a 404,
+       * or "Unexpected token '<'" if the server answered with HTML.
+       *
+       * Reload once to pick up the current index.html. The flag is cleared only
+       * when the app actually boots (see src/main.jsx), so a genuinely broken
+       * build fails visibly instead of reloading for ever.
+       */
+      (function () {
+        var KEY = 's2c:recovering';
+
+        function recover(why) {
+          if (sessionStorage.getItem(KEY)) return;   // already tried once
+          sessionStorage.setItem(KEY, why);
+          location.reload();
+        }
+
+        // A script or stylesheet that failed to load (capture phase — resource
+        // errors do not bubble).
+        window.addEventListener('error', function (event) {
+          var el = event.target;
+          if (el && (el.tagName === 'SCRIPT' || el.tagName === 'LINK')) {
+            recover('asset');
+            return;
+          }
+          // HTML served in place of JavaScript surfaces as a parse error.
+          if (event.message && event.message.indexOf("Unexpected token '<'") !== -1) {
+            recover('html-for-js');
+          }
+        }, true);
+      })();
+    </script>
+
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
