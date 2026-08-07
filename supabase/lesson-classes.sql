@@ -20,6 +20,15 @@ create table if not exists public.lesson_classes (
 create index if not exists lesson_classes_class_idx on public.lesson_classes (class_id);
 
 -- -----------------------------------------------------------------------------
+-- The existing policies mention class_id, and Postgres refuses to drop a column
+-- that a policy depends on. They are removed here and rebuilt further down
+-- against the join table.
+-- -----------------------------------------------------------------------------
+drop policy if exists lessons_select on public.lessons;
+drop policy if exists lessons_insert on public.lessons;
+drop policy if exists lessons_update on public.lessons;
+
+-- -----------------------------------------------------------------------------
 -- Migrate off lessons.class_id, once. Guarded on the column still existing so
 -- a second run is a no-op rather than an error.
 -- -----------------------------------------------------------------------------
