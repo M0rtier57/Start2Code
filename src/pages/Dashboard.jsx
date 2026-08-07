@@ -9,6 +9,7 @@ import {
 } from '../lib/api'
 import { downloadJson } from '../lib/download'
 import { useCurriculum } from '../lib/CurriculumContext'
+import { useI18n } from '../i18n'
 import { BLANK_PYGAME, BLANK_PYTHON } from '../curriculum/python'
 
 export default function Dashboard() {
@@ -16,6 +17,7 @@ export default function Dashboard() {
   const { user, displayName } = useAuth()
   const toast = useToast()
   const { tracks, classLessons } = useCurriculum()
+  const { t, pick } = useI18n()
 
   const [projects, setProjects] = useState([])
   const [progress, setProgress] = useState([])
@@ -53,7 +55,7 @@ export default function Dashboard() {
       const isScratch = trackId === 'scratch'
       const project = await createProject({
         kind: trackId,
-        title: lesson ? lesson.title : `My ${isScratch ? 'Scratch' : 'Python'} project`,
+        title: lesson ? pick(lesson.title) : isScratch ? t('dash.newScratch') : t('dash.newPython'),
         code: isScratch ? null : (lesson?.starter ?? BLANK_PYTHON),
         lessonId: lesson?.id ?? null,
         ownerId: user.id
@@ -63,7 +65,7 @@ export default function Dashboard() {
     } catch (error) {
       toast.error(error.message)
     }
-  }, [user, navigate, toast])
+  }, [user, navigate, toast, t, pick])
 
   /**
    * Start something with no lesson attached. Python has two real starting
@@ -74,7 +76,7 @@ export default function Dashboard() {
     const isScratch = trackId === 'scratch'
     const isGame = flavour === 'game'
 
-    const title = isScratch ? 'My Scratch project' : isGame ? 'My game' : 'My Python program'
+    const title = isScratch ? t('dash.newScratch') : isGame ? t('dash.newGame') : t('dash.newPython')
     const code = isScratch ? null : isGame ? BLANK_PYGAME : BLANK_PYTHON
 
     try {
@@ -84,7 +86,7 @@ export default function Dashboard() {
     } catch (error) {
       toast.error(error.message)
     }
-  }, [user, navigate, toast])
+  }, [user, navigate, toast, t])
 
   const openProject = (project) => navigate(`/${project.kind}/${project.id}`)
 
@@ -92,7 +94,7 @@ export default function Dashboard() {
     try {
       await deleteProject(project)
       setProjects((current) => current.filter((p) => p.id !== project.id))
-      toast.success('Project deleted')
+      toast.success(t('dash.deleted'))
     } catch (error) {
       toast.error(error.message)
     } finally {
@@ -100,7 +102,7 @@ export default function Dashboard() {
     }
   }
 
-  if (loading) return <LoadingScreen label="Loading your work…" />
+  if (loading) return <LoadingScreen label={t('common.loading')} />
 
   const totals = Object.values(tracks).map((track) => {
     const done = track.lessons.filter((lesson) => progressByLesson.get(lesson.id)?.status === 'completed').length
@@ -111,28 +113,28 @@ export default function Dashboard() {
     <div className="page">
       <div className="row-between wrap">
         <div>
-          <h1>Hi {displayName}! 👋</h1>
-          <p className="muted mt-2">Pick up where you left off, or start something new.</p>
+          <h1>{t('dash.hi', { name: displayName })}</h1>
+          <p className="muted mt-2">{t('dash.subtitle')}</p>
         </div>
         <div className="row">
           {classes.length === 0 && (
-            <button className="btn btn-ghost" onClick={() => setJoinOpen(true)}>Join a class</button>
+            <button className="btn btn-ghost" onClick={() => setJoinOpen(true)}>{t('dash.joinClass')}</button>
           )}
           <button
             className="btn btn-ghost"
             onClick={() => {
               downloadJson({ exportedAt: new Date().toISOString(), projects, progress }, 'start2code-progress.json')
-              toast.success('Downloaded a copy of your progress')
+              toast.success(t('dash.exported'))
             }}
           >
-            ⬇ Export progress
+            {t('dash.exportProgress')}
           </button>
         </div>
       </div>
 
       {classes.length > 0 && (
         <p className="small muted mt-4">
-          In {classes.length === 1 ? 'class' : 'classes'}: {classes.map((c) => c.name).join(', ')}
+          {t('dash.inClasses', { classes: classes.map((c) => c.name).join(', ') })}
         </p>
       )}
 
@@ -140,12 +142,12 @@ export default function Dashboard() {
       {classLessons.length > 0 && (
         <section className="mt-6">
           <div className="row-between wrap">
-            <h2>📌 From your teacher</h2>
+            <h2>{t('dash.fromTeacher')}</h2>
             <span className="badge badge-brand">
-              {classLessons.length} lesson{classLessons.length === 1 ? '' : 's'} for your class
+              {t('dash.forYourClass', { count: classLessons.length })}
             </span>
           </div>
-          <p className="small muted mt-2">Lessons your teacher made especially for you.</p>
+          <p className="small muted mt-2">{t('dash.fromTeacherSub')}</p>
 
           <div className="grid grid-auto mt-4">
             {classLessons.map((lesson) => {
@@ -161,17 +163,17 @@ export default function Dashboard() {
                   <div className="row-between">
                     <KindBadge kind={lesson.track} />
                     {complete
-                      ? <span className="badge badge-ok">✓ Done</span>
-                      : row ? <span className="badge badge-brand">In progress</span> : null}
+                      ? <span className="badge badge-ok">{t('common.done')}</span>
+                      : row ? <span className="badge badge-brand">{t('common.inProgress')}</span> : null}
                   </div>
-                  <h3 className="mt-2">{lesson.title}</h3>
-                  <p className="small muted mt-2">{lesson.blurb}</p>
+                  <h3 className="mt-2">{pick(lesson.title)}</h3>
+                  <p className="small muted mt-2">{pick(lesson.blurb)}</p>
                   {row && row.total_steps > 0 && (
                     <div className="mt-4">
                       <ProgressBar value={row.completed_steps} total={row.total_steps} tone={complete ? 'ok' : ''} />
                     </div>
                   )}
-                  <p className="tiny muted mt-2">⏱ about {lesson.minutes} min</p>
+                  <p className="tiny muted mt-2">⏱ {t('common.minutes', { minutes: lesson.minutes })}</p>
                 </button>
               )
             })}
@@ -180,49 +182,49 @@ export default function Dashboard() {
       )}
 
       {/* Start something new — the fastest possible route into an editor. */}
-      <h2 className="mt-6">Start something new</h2>
+      <h2 className="mt-6">{t('dash.startNew')}</h2>
       <div className="grid grid-auto mt-4">
         <button className="tile" onClick={() => startBlank('scratch')}>
           <span style={{ fontSize: '1.9rem' }}>🧩</span>
-          <h3 className="mt-2">Blank Scratch project</h3>
-          <p className="small muted mt-2">An empty stage and the block palette. Build whatever you like.</p>
+          <h3 className="mt-2">{t('dash.blankScratch')}</h3>
+          <p className="small muted mt-2">{t('dash.blankScratchSub')}</p>
         </button>
 
         <button className="tile" onClick={() => startBlank('python', 'console')}>
           <span style={{ fontSize: '1.9rem' }}>🐍</span>
-          <h3 className="mt-2">Blank Python program</h3>
-          <p className="small muted mt-2">A code editor and a console. Starts instantly.</p>
+          <h3 className="mt-2">{t('dash.blankPython')}</h3>
+          <p className="small muted mt-2">{t('dash.blankPythonSub')}</p>
         </button>
 
         <button className="tile" onClick={() => startBlank('python', 'game')}>
           <span style={{ fontSize: '1.9rem' }}>🎮</span>
-          <h3 className="mt-2">Blank pygame game</h3>
-          <p className="small muted mt-2">A ready-made game window you can draw in straight away.</p>
+          <h3 className="mt-2">{t('dash.blankGame')}</h3>
+          <p className="small muted mt-2">{t('dash.blankGameSub')}</p>
         </button>
       </div>
 
       {/* Track summary */}
-      <h2 className="mt-6">Your learning</h2>
+      <h2 className="mt-6">{t('dash.yourLearning')}</h2>
       <div className="grid mt-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
         {totals.map(({ track, done, total }) => (
           <div key={track.id} className="card">
             <div className="row-between">
               <h2>{track.emoji} {track.name}</h2>
-              <span className="badge">{done}/{total} done</span>
+              <span className="badge">{t('dash.lessonsDone', { done, total })}</span>
             </div>
             <p className="small muted mt-2">{track.tagline}</p>
             <div className="mt-4"><ProgressBar value={done} total={total} tone={done === total ? 'ok' : ''} /></div>
             <button className="btn btn-block mt-4" onClick={() => start(track.id, track.lessons[Math.min(done, total - 1)])}>
-              {done === 0 ? 'Start lesson 1' : done === total ? 'Practise again' : 'Continue learning'}
+              {done === 0 ? t('dash.startFirst') : done === total ? t('dash.practise') : t('dash.continue')}
             </button>
           </div>
         ))}
       </div>
 
       <div className="tabs mt-6">
-        <button className={`tab ${tab === 'learn' ? 'active' : ''}`} onClick={() => setTab('learn')}>Lessons</button>
+        <button className={`tab ${tab === 'learn' ? 'active' : ''}`} onClick={() => setTab('learn')}>{t('dash.tabLessons')}</button>
         <button className={`tab ${tab === 'projects' ? 'active' : ''}`} onClick={() => setTab('projects')}>
-          My projects ({projects.length})
+          {t('dash.tabProjects', { count: projects.length })}
         </button>
       </div>
 
@@ -231,9 +233,9 @@ export default function Dashboard() {
           {Object.values(tracks).map((track) => (
             <section key={track.id}>
               <div className="row-between">
-                <h2>{track.emoji} {track.name} lessons</h2>
+                <h2>{track.emoji} {track.name}</h2>
                 <button className="btn btn-ghost btn-sm" onClick={() => startBlank(track.id)}>
-                  + Blank {track.name} project
+                  {t('dash.blankProject', { track: track.name })}
                 </button>
               </div>
 
@@ -244,19 +246,19 @@ export default function Dashboard() {
                   return (
                     <button key={lesson.id} className="tile" onClick={() => start(track.id, lesson)}>
                       <div className="row-between">
-                        <span className="badge">Lesson {index + 1}</span>
+                        <span className="badge">{t('dash.lessonNumber', { number: index + 1 })}</span>
                         {complete
-                          ? <span className="badge badge-ok">✓ Done</span>
-                          : row ? <span className="badge badge-brand">In progress</span> : null}
+                          ? <span className="badge badge-ok">{t('common.done')}</span>
+                          : row ? <span className="badge badge-brand">{t('common.inProgress')}</span> : null}
                       </div>
-                      <h3 className="mt-2">{lesson.title}</h3>
-                      <p className="small muted mt-2">{lesson.blurb}</p>
+                      <h3 className="mt-2">{pick(lesson.title)}</h3>
+                      <p className="small muted mt-2">{pick(lesson.blurb)}</p>
                       {row && row.total_steps > 0 && (
                         <div className="mt-4">
                           <ProgressBar value={row.completed_steps} total={row.total_steps} tone={complete ? 'ok' : ''} />
                         </div>
                       )}
-                      <p className="tiny muted mt-2">⏱ about {lesson.minutes} min</p>
+                      <p className="tiny muted mt-2">⏱ {t('common.minutes', { minutes: lesson.minutes })}</p>
                     </button>
                   )
                 })}
@@ -267,9 +269,9 @@ export default function Dashboard() {
       ) : (
         <div>
           {projects.length === 0 ? (
-            <Empty emoji="🚀" title="No projects yet"
-                   action={<button className="btn" onClick={() => setTab('learn')}>Browse the lessons</button>}>
-              Start a lesson and your work will appear here automatically.
+            <Empty emoji="🚀" title={t('dash.noProjects')}
+                   action={<button className="btn" onClick={() => setTab('learn')}>{t('dash.browseLessons')}</button>}>
+              {t('dash.noProjectsSub')}
             </Empty>
           ) : (
             <div className="grid grid-auto">
@@ -284,8 +286,8 @@ export default function Dashboard() {
                     >🗑</button>
                   </div>
                   <h3 className="mt-4">{project.title}</h3>
-                  <p className="tiny muted mt-2">Edited {timeAgo(project.updated_at)}</p>
-                  <button className="btn btn-block mt-4" onClick={() => openProject(project)}>Open</button>
+                  <p className="tiny muted mt-2">{t('dash.edited', { when: timeAgo(project.updated_at) })}</p>
+                  <button className="btn btn-block mt-4" onClick={() => openProject(project)}>{t('common.open')}</button>
                 </div>
               ))}
             </div>
@@ -297,17 +299,17 @@ export default function Dashboard() {
 
       {confirmDelete && (
         <Modal
-          title="Delete this project?"
+          title={t('dash.deleteTitle')}
           onClose={() => setConfirmDelete(null)}
           footer={
             <>
-              <button className="btn btn-ghost" onClick={() => setConfirmDelete(null)}>Cancel</button>
-              <button className="btn btn-danger" onClick={() => remove(confirmDelete)}>Delete for ever</button>
+              <button className="btn btn-ghost" onClick={() => setConfirmDelete(null)}>{t('common.cancel')}</button>
+              <button className="btn btn-danger" onClick={() => remove(confirmDelete)}>{t('dash.deleteConfirm')}</button>
             </>
           }
         >
           <p><strong>{confirmDelete.title}</strong> will be gone and cannot be brought back.</p>
-          <p className="small muted mt-2">Tip: open it first and download a copy if you want to keep it.</p>
+          <p className="small muted mt-2">{t('dash.deleteTip')}</p>
         </Modal>
       )}
     </div>

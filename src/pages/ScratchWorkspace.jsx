@@ -9,6 +9,7 @@ import {
 } from '../lib/api'
 import { downloadBlob, pickFile, toFilename } from '../lib/download'
 import { useCurriculum } from '../lib/CurriculumContext'
+import { useI18n } from '../i18n'
 
 /** Waits for a reply to one request on the bridge. */
 function requestFromFrame(frame, message, expectType, timeout = 30_000) {
@@ -39,6 +40,7 @@ export default function ScratchWorkspace() {
   const { user } = useAuth()
   const toast = useToast()
   const { getLesson, tracks, loading: curriculumLoading } = useCurriculum()
+  const { t, pick } = useI18n()
 
   const [project, setProject] = useState(null)
   const [title, setTitle] = useState('')
@@ -124,7 +126,7 @@ export default function ScratchWorkspace() {
           const blob = await downloadScratchFile(project.storage_path)
           send(await blob.arrayBuffer())
         } catch (error) {
-          toast.error(`Could not open your saved project: ${error.message}`)
+          toast.error(t('ws.openFailed', { error: error.message }))
         }
         return
       }
@@ -137,11 +139,11 @@ export default function ScratchWorkspace() {
         } catch (error) {
           // Not fatal — the child simply starts from the empty stage.
           console.warn('Could not load the lesson starter project:', error.message)
-          toast.error('The starting project for this lesson could not be loaded.')
+          toast.error(t('ws.starterFailed'))
         }
       }
     })()
-  }, [editorReady, project, lesson, curriculumLoading, toast])
+  }, [editorReady, project, lesson, curriculumLoading, toast, t])
 
   /* ------------------------------------------------------------------ save */
   const exportSb3 = useCallback(async () => {
@@ -159,31 +161,31 @@ export default function ScratchWorkspace() {
       if (title !== project.title) await renameProject(project.id, title)
       dirty.current = false
       setSaveState('saved')
-      toast.success('Project saved')
+      toast.success(t('ws.projectSaved'))
       logActivity(user?.id, 'project_saved', { project_id: project.id, kind: 'scratch' })
     } catch (error) {
       setSaveState('error')
-      toast.error(`Could not save: ${error.message}`)
+      toast.error(t('ws.saveError', { error: error.message }))
     }
-  }, [project, editorReady, exportSb3, user, title, toast])
+  }, [project, editorReady, exportSb3, user, title, toast, t])
 
   const download = useCallback(async () => {
     try {
       const blob = await exportSb3()
       downloadBlob(blob, toFilename(title, 'sb3'))
-      toast.success('Downloaded — open it at scratch.mit.edu or here again later.')
+      toast.success(t('ws.downloaded'))
     } catch (error) {
       toast.error(error.message)
     }
-  }, [exportSb3, title, toast])
+  }, [exportSb3, title, toast, t])
 
   const upload = useCallback(async () => {
     const file = await pickFile('.sb3')
     if (!file) return
     const buffer = await file.arrayBuffer()
     frame.current?.contentWindow?.postMessage({ source: 's2c', type: 'load-sb3', buffer }, '*', [buffer])
-    toast.success('Project loaded')
-  }, [toast])
+    toast.success(t('ws.projectLoaded'))
+  }, [toast, t])
 
   // Autosave every couple of minutes; children forget, and the bell does not.
   useEffect(() => {
@@ -205,25 +207,25 @@ export default function ScratchWorkspace() {
     return () => window.removeEventListener('keydown', onKey)
   }, [save])
 
-  if (loading) return <div className="ws"><LoadingScreen label="Opening your project…" /></div>
+  if (loading) return <div className="ws"><LoadingScreen label={t('ws.opening')} /></div>
 
   const saveLabel = {
-    saved: editorReady ? 'All changes saved' : 'Loading editor…',
-    dirty: 'Unsaved changes',
-    saving: 'Saving…',
-    error: 'Save failed'
+    saved: editorReady ? t('ws.saved') : t('ws.loadingEditor'),
+    dirty: t('ws.dirty'),
+    saving: t('ws.savingState'),
+    error: t('ws.saveFailed')
   }[saveState]
 
   return (
     <div className="ws">
       <div className="ws-bar">
-        <button className="btn btn-dark btn-sm" onClick={() => navigate('/')}>← My projects</button>
+        <button className="btn btn-dark btn-sm" onClick={() => navigate('/')}>{t('common.back')}</button>
 
         <input
           className="ws-title"
           value={title}
           onChange={(e) => { setTitle(e.target.value); setSaveState('dirty'); dirty.current = true }}
-          aria-label="Project name"
+          aria-label={t('ws.projectName')}
         />
 
         <span className="save-state">
@@ -234,11 +236,11 @@ export default function ScratchWorkspace() {
         <span style={{ flex: 1 }} />
 
         <button className="btn btn-dark btn-sm" onClick={() => setShowLesson((v) => !v)}>
-          {showLesson ? 'Hide steps' : '📋 Steps'}
+          {showLesson ? t('ws.hideSteps') : t('ws.steps')}
         </button>
-        <button className="btn btn-dark btn-sm" onClick={upload} disabled={!editorReady}>⬆ Open .sb3</button>
-        <button className="btn btn-dark btn-sm" onClick={download} disabled={!editorReady}>⬇ Download .sb3</button>
-        <button className="btn btn-sm" onClick={save} disabled={!editorReady || saveState === 'saving'}>Save</button>
+        <button className="btn btn-dark btn-sm" onClick={upload} disabled={!editorReady}>{t('ws.openSb3')}</button>
+        <button className="btn btn-dark btn-sm" onClick={download} disabled={!editorReady}>{t('ws.downloadSb3')}</button>
+        <button className="btn btn-sm" onClick={save} disabled={!editorReady || saveState === 'saving'}>{t('common.save')}</button>
       </div>
 
       <div className="ws-body">
@@ -255,7 +257,7 @@ export default function ScratchWorkspace() {
           {!editorReady && (
             <div className="loading-screen" style={{ position: 'absolute', inset: 0, background: 'var(--dark-0)', zIndex: 2 }}>
               <div className="spinner spinner-lg" />
-              <p className="muted">Starting the block editor…</p>
+              <p className="muted">{t('ws.startingEditor')}</p>
             </div>
           )}
           <iframe
@@ -269,7 +271,7 @@ export default function ScratchWorkspace() {
       </div>
 
       {pickerOpen && (
-        <Modal title="Choose a lesson" onClose={() => setPickerOpen(false)} wide>
+        <Modal title={t('ws.chooseLesson')} onClose={() => setPickerOpen(false)} wide>
           <div className="grid grid-auto">
             {tracks.scratch.lessons.map((item) => (
               <button
@@ -277,8 +279,8 @@ export default function ScratchWorkspace() {
                 className="tile"
                 onClick={() => { setPickerOpen(false); navigate(`/scratch/${projectId}?lesson=${item.id}`) }}
               >
-                <h3>{item.title}</h3>
-                <p className="small muted mt-2">{item.blurb}</p>
+                <h3>{pick(item.title)}</h3>
+                <p className="small muted mt-2">{pick(item.blurb)}</p>
               </button>
             ))}
           </div>

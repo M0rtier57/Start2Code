@@ -3,6 +3,7 @@ import Editor from '@monaco-editor/react'
 
 import { Modal, useToast } from './ui'
 import { useAuth } from '../lib/AuthContext'
+import { useI18n } from '../i18n'
 import {
   createLesson, makeLessonKey, removeLessonStarter, setLessonClasses, updateLesson, uploadLessonStarter
 } from '../lib/api'
@@ -20,17 +21,23 @@ import { BLANK_PYGAME, BLANK_PYTHON } from '../curriculum/python'
 export default function LessonEditor({ lesson, builtIn, classes = [], canPublishGlobal, onClose, onSaved }) {
   const { user } = useAuth()
   const toast = useToast()
+  const { pick } = useI18n()
 
   const seed = lesson ?? builtIn ?? null
   const isEditing = Boolean(lesson)
 
+  // A built-in lesson carries { nl, en } text; a database row plain strings.
+  const resolvedTitle = pick(seed?.title) || ''
+  const resolvedBlurb = pick(seed?.blurb) || ''
+  const resolvedSteps = pick(seed?.steps) || []
+
   const [track, setTrack] = useState(seed?.track ?? 'python')
-  const [title, setTitle] = useState(seed?.title ?? '')
-  const [blurb, setBlurb] = useState(seed?.blurb ?? '')
+  const [title, setTitle] = useState(resolvedTitle)
+  const [blurb, setBlurb] = useState(resolvedBlurb)
   const [minutes, setMinutes] = useState(seed?.minutes ?? 15)
   const [mode, setMode] = useState(seed?.mode ?? 'console')
   const [steps, setSteps] = useState(
-    seed?.steps?.length ? [...seed.steps] : ['']
+    resolvedSteps.length ? [...resolvedSteps] : ['']
   )
   const [starter, setStarter] = useState(seed?.starter ?? '')
   const [starterPath, setStarterPath] = useState(lesson?.starter_path ?? seed?.starterPath ?? null)
@@ -135,7 +142,7 @@ export default function LessonEditor({ lesson, builtIn, classes = [], canPublish
 
   const heading = isEditing
     ? 'Edit lesson'
-    : builtIn ? `Customise “${builtIn.title}”` : 'New lesson'
+    : builtIn ? `Customise “${pick(builtIn.title)}”` : 'New lesson'
 
   return (
     <Modal title={heading} onClose={onClose} wide>

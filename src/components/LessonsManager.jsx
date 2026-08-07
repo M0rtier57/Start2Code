@@ -6,6 +6,7 @@ import { useAuth } from '../lib/AuthContext'
 import { deleteLesson, setLessonClasses, updateLesson } from '../lib/api'
 import { useCurriculum } from '../lib/CurriculumContext'
 import { pythonLessons, scratchLessons } from '../curriculum'
+import { useI18n } from '../i18n'
 
 const BUILT_IN = { scratch: scratchLessons, python: pythonLessons }
 
@@ -19,6 +20,7 @@ export default function LessonsManager({ classes = [] }) {
   const { isAdmin, user } = useAuth()
   const { rows, refresh } = useCurriculum()
   const toast = useToast()
+  const { pick } = useI18n()
 
   const [editing, setEditing] = useState(null)       // a lessons row
   const [customising, setCustomising] = useState(null) // a built-in lesson
@@ -191,10 +193,10 @@ export default function LessonsManager({ classes = [] }) {
                   return (
                     <tr key={lesson.id}>
                       <td>
-                        <div style={{ fontWeight: 600 }}>{lesson.title}</div>
-                        <div className="tiny muted">{lesson.blurb}</div>
+                        <div style={{ fontWeight: 600 }}>{pick(lesson.title)}</div>
+                        <div className="tiny muted">{pick(lesson.blurb)}</div>
                       </td>
-                      <td className="num">{lesson.steps.length}</td>
+                      <td className="num">{(pick(lesson.steps) || []).length}</td>
                       <td>
                         <div className="row" style={{ justifyContent: 'flex-end' }}>
                           {replaced

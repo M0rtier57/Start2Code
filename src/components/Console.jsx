@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react'
 
+import { useI18n } from '../i18n'
+
 /**
  * The output pane under the Python editor.
  *
@@ -8,6 +10,7 @@ import { useEffect, useRef } from 'react'
  * rather than one line per message.
  */
 export default function Console({ entries, running, onClear, height, onResizeStart }) {
+  const { t } = useI18n()
   const scroller = useRef(null)
   const pinned = useRef(true)
 
@@ -31,15 +34,15 @@ export default function Console({ entries, running, onClear, height, onResizeSta
         title="Drag to resize"
       />
       <div className="console-head">
-        <span>Console</span>
-        {running && <span className="badge badge-brand">running…</span>}
+        <span>{t('console.title')}</span>
+        {running && <span className="badge badge-brand">{t('console.running')}</span>}
         <span className="spacer" style={{ flex: 1 }} />
-        <button className="btn btn-quiet btn-sm" onClick={onClear}>Clear</button>
+        <button className="btn btn-quiet btn-sm" onClick={onClear}>{t('console.clear')}</button>
       </div>
 
       <div className="console-out" ref={scroller} onScroll={onScroll}>
         {entries.length === 0 && (
-          <span className="console-empty">Output from your program shows up here.</span>
+          <span className="console-empty">{t('console.empty')}</span>
         )}
         {entries.map((entry, index) => (
           <span key={index} className={entry.stream === 'err' ? 'err' : entry.stream === 'sys' ? 'sys' : ''}>

@@ -9,6 +9,7 @@ import { useAuth } from '../lib/AuthContext'
 import { getProject, logActivity, renameProject, savePythonCode } from '../lib/api'
 import { downloadText, toFilename } from '../lib/download'
 import { useCurriculum } from '../lib/CurriculumContext'
+import { useI18n } from '../i18n'
 
 const AUTOSAVE_DELAY = 2500
 
@@ -19,6 +20,7 @@ export default function PythonWorkspace() {
   const { user } = useAuth()
   const toast = useToast()
   const { getLesson, tracks } = useCurriculum()
+  const { t, pick } = useI18n()
 
   const [project, setProject] = useState(null)
   const [code, setCode] = useState('')
@@ -86,9 +88,9 @@ export default function PythonWorkspace() {
       logActivity(user?.id, 'project_saved', { project_id: project.id, kind: 'python' })
     } catch (error) {
       setSaveState('error')
-      toast.error(`Could not save: ${error.message}`)
+      toast.error(t('ws.saveError', { error: error.message }))
     }
-  }, [project, code, title, user, toast])
+  }, [project, code, title, user, toast, t])
 
   // Autosave after a pause in typing, so nothing is ever lost at the bell.
   useEffect(() => {
@@ -140,7 +142,7 @@ export default function PythonWorkspace() {
           break
         case 'finished':
           setRunning(false)
-          append([{ stream: 'sys', text: data.ok ? '\n▸ Program finished.\n' : '\n▸ Program stopped because of an error.\n' }])
+          append([{ stream: 'sys', text: data.ok ? t('console.finished') : t('console.crashed') }])
 
           // The console is hidden while the stage is fullscreen, so a crash
           // would be silent. Come back out so the error is actually readable.
@@ -158,10 +160,10 @@ export default function PythonWorkspace() {
 
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
-  }, [append])
+  }, [append, t])
 
   const run = useCallback(() => {
-    setOutput([{ stream: 'sys', text: `▸ Running your ${mode === 'game' ? 'game' : 'program'}…\n` }])
+    setOutput([{ stream: 'sys', text: (mode === 'game' ? t('console.runningGame') : t('console.runningProgram')) + '\n' }])
     setRunning(true)
 
     // Pyodide has no clean way to abort a running program, so each run gets a
@@ -171,14 +173,14 @@ export default function PythonWorkspace() {
 
     if (project && code !== savedCode.current) save(code, title)
     logActivity(user?.id, 'code_run', { project_id: project?.id, mode })
-  }, [code, mode, project, save, title, user])
+  }, [code, mode, project, save, title, user, t])
 
   const stop = useCallback(() => {
     pendingRun.current = null
     setFrameKey((key) => key + 1)
     setRunning(false)
-    append([{ stream: 'sys', text: '\n▸ Stopped.\n' }])
-  }, [append])
+    append([{ stream: 'sys', text: t('console.stopped') }])
+  }, [append, t])
 
   // Ctrl/Cmd+S to save, Ctrl/Cmd+Enter to run — muscle memory for older kids.
   useEffect(() => {
@@ -245,26 +247,26 @@ export default function PythonWorkspace() {
     window.addEventListener('mouseup', onUp)
   }
 
-  if (loading) return <div className="ws"><LoadingScreen label="Opening your project…" /></div>
+  if (loading) return <div className="ws"><LoadingScreen label={t('ws.opening')} /></div>
 
   const saveLabel = {
-    saved: 'All changes saved',
-    dirty: 'Unsaved changes',
-    saving: 'Saving…',
-    error: 'Save failed'
+    saved: t('ws.saved'),
+    dirty: t('ws.dirty'),
+    saving: t('ws.savingState'),
+    error: t('ws.saveFailed')
   }[saveState]
 
   return (
     <div className="ws">
       <div className="ws-bar">
-        <button className="btn btn-dark btn-sm" onClick={() => navigate('/')}>← My projects</button>
+        <button className="btn btn-dark btn-sm" onClick={() => navigate('/')}>{t('common.back')}</button>
 
         <input
           className="ws-title"
           value={title}
           onChange={(e) => { setTitle(e.target.value); setSaveState('dirty') }}
           onBlur={() => save(code, title)}
-          aria-label="Project name"
+          aria-label={t('ws.projectName')}
         />
 
         <span className="save-state">
@@ -274,15 +276,15 @@ export default function PythonWorkspace() {
 
         <span style={{ flex: 1 }} />
 
-        <button className="btn btn-ok btn-sm" onClick={run} disabled={running}>▶ Run</button>
-        <button className="btn btn-dark btn-sm" onClick={stop} disabled={!running}>■ Stop</button>
+        <button className="btn btn-ok btn-sm" onClick={run} disabled={running}>{t('ws.run')}</button>
+        <button className="btn btn-dark btn-sm" onClick={stop} disabled={!running}>{t('ws.stop')}</button>
         <button className="btn btn-dark btn-sm" onClick={() => setShowLesson((v) => !v)}>
-          {showLesson ? 'Hide steps' : '📋 Steps'}
+          {showLesson ? t('ws.hideSteps') : t('ws.steps')}
         </button>
         <button className="btn btn-dark btn-sm" onClick={() => downloadText(code, toFilename(title, 'py'))}>
-          ⬇ Download .py
+          {t('ws.downloadPy')}
         </button>
-        <button className="btn btn-sm" onClick={() => save()} disabled={saveState === 'saving'}>Save</button>
+        <button className="btn btn-sm" onClick={() => save()} disabled={saveState === 'saving'}>{t('common.save')}</button>
       </div>
 
       <div className="ws-body">
@@ -336,22 +338,22 @@ export default function PythonWorkspace() {
             : { flex: 1, borderLeft: '1px solid var(--dark-3)' }}
         >
           <div className="console-head" style={{ borderBottom: '1px solid var(--dark-3)', borderTop: 0 }}>
-            <span>{mode === 'game' ? 'Game stage' : 'Stage (console mode)'}</span>
+            <span>{mode === 'game' ? t('ws.gameStage') : t('ws.consoleStage')}</span>
             <span style={{ flex: 1 }} />
 
             {stageFull && (
               <>
-                <button className="btn btn-ok btn-sm" onClick={run} disabled={running}>▶ Run</button>
-                <button className="btn btn-dark btn-sm" onClick={stop} disabled={!running}>■ Stop</button>
+                <button className="btn btn-ok btn-sm" onClick={run} disabled={running}>{t('ws.run')}</button>
+                <button className="btn btn-dark btn-sm" onClick={stop} disabled={!running}>{t('ws.stop')}</button>
               </>
             )}
 
             <button
               className="btn btn-dark btn-sm"
               onClick={toggleStageFull}
-              title={stageFull ? 'Leave fullscreen (Esc)' : 'Play the game full screen'}
+              title={stageFull ? t('ws.exitFullscreenHint') : t('ws.fullscreenHint')}
             >
-              {stageFull ? '✕ Leave fullscreen' : '⛶ Fullscreen'}
+              {stageFull ? t('ws.exitFullscreen') : t('ws.fullscreen')}
             </button>
           </div>
 
@@ -368,7 +370,7 @@ export default function PythonWorkspace() {
       </div>
 
       {pickerOpen && (
-        <Modal title="Choose a lesson" onClose={() => setPickerOpen(false)} wide>
+        <Modal title={t('ws.chooseLesson')} onClose={() => setPickerOpen(false)} wide>
           <div className="grid grid-auto">
             {tracks.python.lessons.map((item) => (
               <button
@@ -376,8 +378,8 @@ export default function PythonWorkspace() {
                 className="tile"
                 onClick={() => { setPickerOpen(false); navigate(`/python/${projectId}?lesson=${item.id}`) }}
               >
-                <h3>{item.title}</h3>
-                <p className="small muted mt-2">{item.blurb}</p>
+                <h3>{pick(item.title)}</h3>
+                <p className="small muted mt-2">{pick(item.blurb)}</p>
               </button>
             ))}
           </div>

@@ -147,6 +147,24 @@ Nothing is ever only in the browser:
 
 ---
 
+## Languages
+
+Dutch is the main language; English is available from the picker in the header
+(and on the login page, so a child who cannot read the interface can still change
+it). The choice is remembered per device in `localStorage`.
+
+- **Interface text** lives in [`src/i18n/nl.js`](src/i18n/nl.js) and
+  [`en.js`](src/i18n/en.js). Add a key to both, then use `t('some.key')`.
+  A missing key falls back to Dutch, then to the key itself — never to blank space.
+- **Lesson text** is written per language in the curriculum files:
+  `title: { nl: '…', en: '…' }`. Components resolve it with `pick(lesson.title)`.
+- **Starter code** is shared between languages, with Dutch comments and Dutch
+  variable names. Duplicating every program would double the curriculum files for
+  little gain, and the code runs identically either way.
+
+Two things follow the browser's own language rather than this setting: the Scratch
+editor (it ships its own translations) and Monaco's context menus.
+
 ## Custom lessons
 
 Lessons come from two places and are merged at runtime by

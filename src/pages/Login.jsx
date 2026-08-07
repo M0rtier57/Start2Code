@@ -1,10 +1,13 @@
 import { useState } from 'react'
 import { supabase, isConfigured } from '../lib/supabaseClient'
 import Logo from '../components/Logo'
+import LanguagePicker from '../components/LanguagePicker'
 import { useToast } from '../components/ui'
+import { useI18n } from '../i18n'
 
 export default function Login() {
   const toast = useToast()
+  const { t } = useI18n()
   const [mode, setMode] = useState('login')      // login | signup
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -33,12 +36,12 @@ export default function Login() {
         if (error) throw error
 
         if (!data.session) {
-          setNotice('Almost there! Check your email and click the confirmation link, then log in.')
+          setNotice(t('login.checkEmail'))
           setMode('login')
         }
       }
     } catch (error) {
-      toast.error(friendlyAuthError(error.message))
+      toast.error(friendlyAuthError(error.message, t))
     } finally {
       setBusy(false)
     }
@@ -51,13 +54,13 @@ export default function Login() {
           <div className="logo" style={{ justifyContent: 'center', fontSize: '1.4rem' }}>
             <Logo size={44} /> Start2Code
           </div>
-          <p className="muted mt-2">Learn to code with blocks and Python.</p>
+          <p className="muted mt-2">{t('app.tagline')}</p>
         </div>
 
         <div className="card">
           {!isConfigured && (
             <div className="card card-flat" style={{ background: 'var(--danger-soft)', borderColor: '#ffc9c9', marginBottom: 16 }}>
-              <strong className="small">Not connected to Supabase</strong>
+              <strong className="small">{t('login.notConnected')}</strong>
               <p className="tiny mt-2">
                 Add <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> to
                 <code> .env.local</code> and restart the dev server.
@@ -66,8 +69,8 @@ export default function Login() {
           )}
 
           <div className="tabs">
-            <button className={`tab ${mode === 'login' ? 'active' : ''}`} onClick={() => setMode('login')}>Log in</button>
-            <button className={`tab ${mode === 'signup' ? 'active' : ''}`} onClick={() => setMode('signup')}>Create account</button>
+            <button className={`tab ${mode === 'login' ? 'active' : ''}`} onClick={() => setMode('login')}>{t('login.title')}</button>
+            <button className={`tab ${mode === 'signup' ? 'active' : ''}`} onClick={() => setMode('signup')}>{t('login.signup')}</button>
           </div>
 
           {notice && <p className="small mt-2" style={{ color: 'var(--ok)' }}>{notice}</p>}
@@ -75,52 +78,58 @@ export default function Login() {
           <form onSubmit={submit} className="col" style={{ gap: 14 }}>
             {mode === 'signup' && (
               <label className="field">
-                Your name
-                <input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Sam Peeters" required />
+                {t('login.yourName')}
+                <input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder={t('login.namePlaceholder')} required />
               </label>
             )}
 
             <label className="field">
-              Email
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@school.be" required autoComplete="email" />
+              {t('login.email')}
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t('login.emailPlaceholder')} required autoComplete="email" />
             </label>
 
             <label className="field">
-              Password
+              {t('login.password')}
               <input
                 type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-                placeholder="At least 6 characters" required minLength={6}
+                placeholder={t('login.passwordPlaceholder')} required minLength={6}
                 autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               />
             </label>
 
             {mode === 'signup' && (
               <label className="field">
-                I am a…
+                {t('login.iAm')}
                 <select value={role} onChange={(e) => setRole(e.target.value)}>
-                  <option value="student">Student</option>
-                  <option value="teacher">Teacher</option>
+                  <option value="student">{t('login.student')}</option>
+                  <option value="teacher">{t('login.teacher')}</option>
                 </select>
               </label>
             )}
 
             <button className="btn btn-lg btn-block" type="submit" disabled={busy || !isConfigured}>
-              {busy ? 'One moment…' : mode === 'login' ? 'Log in' : 'Create my account'}
+              {busy ? t('common.oneMoment') : mode === 'login' ? t('login.submitLogin') : t('login.submitSignup')}
             </button>
           </form>
         </div>
 
         <p className="tiny muted center mt-4">
-          Students join their class with a code after logging in.
+          {t('login.joinHint')}
         </p>
+
+        {/* Reachable before logging in — a child who cannot read the interface
+            has to be able to change it from here. */}
+        <div className="row mt-4" style={{ justifyContent: 'center' }}>
+          <LanguagePicker compact />
+        </div>
       </div>
     </div>
   )
 }
 
-function friendlyAuthError(message) {
-  if (/invalid login credentials/i.test(message)) return 'That email and password do not match.'
-  if (/already registered/i.test(message)) return 'That email already has an account — try logging in.'
-  if (/password should be/i.test(message)) return 'Please use a password of at least 6 characters.'
+function friendlyAuthError(message, t) {
+  if (/invalid login credentials/i.test(message)) return t('login.errorCredentials')
+  if (/already registered/i.test(message)) return t('login.errorExists')
+  if (/password should be/i.test(message)) return t('login.errorPassword')
   return message
 }

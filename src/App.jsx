@@ -1,9 +1,11 @@
 import { NavLink, Navigate, Outlet, Route, Routes, useNavigate } from 'react-router-dom'
 
+import LanguagePicker from './components/LanguagePicker'
 import Logo from './components/Logo'
 import { Avatar, LoadingScreen } from './components/ui'
 import { useAuth } from './lib/AuthContext'
 import { isConfigured } from './lib/supabaseClient'
+import { useI18n } from './i18n'
 
 import AdminPanel from './pages/AdminPanel'
 import Dashboard from './pages/Dashboard'
@@ -14,12 +16,13 @@ import TeacherDashboard from './pages/TeacherDashboard'
 
 export default function App() {
   const { session, loading } = useAuth()
+  const { t } = useI18n()
 
   // Checked before anything touches auth: without credentials every request
   // would fail, and an explanation beats a silently broken login form.
   if (!isConfigured) return <SetupNeeded />
 
-  if (loading) return <LoadingScreen label="Getting things ready…" />
+  if (loading) return <LoadingScreen label={t('common.loading')} />
   if (!session) return <Login />
 
   return (
@@ -40,6 +43,7 @@ export default function App() {
 
 function Shell() {
   const { displayName, profile, isTeacher, isAdmin, signOut } = useAuth()
+  const { t } = useI18n()
   const navigate = useNavigate()
 
   return (
@@ -56,16 +60,16 @@ function Shell() {
 
           <nav className="row" style={{ marginLeft: 12 }}>
             <NavLink to="/" end className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-              My work
+              {t('nav.myWork')}
             </NavLink>
             {isTeacher && (
               <NavLink to="/classes" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-                Classes
+                {t('nav.classes')}
               </NavLink>
             )}
             {isAdmin && (
               <NavLink to="/admin" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-                Admin
+                {t('nav.admin')}
               </NavLink>
             )}
           </nav>
@@ -76,9 +80,10 @@ function Shell() {
             <Avatar name={displayName} />
             <div className="tiny" style={{ lineHeight: 1.3 }}>
               <div style={{ fontWeight: 650 }}>{displayName}</div>
-              <div className="muted">{profile?.role ?? 'student'}</div>
+              <div className="muted">{t(`role.${profile?.role ?? 'student'}`)}</div>
             </div>
-            <button className="btn btn-ghost btn-sm" onClick={signOut}>Log out</button>
+            <LanguagePicker compact />
+            <button className="btn btn-ghost btn-sm" onClick={signOut}>{t('nav.logout')}</button>
           </div>
         </div>
       </header>

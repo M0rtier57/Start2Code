@@ -9,6 +9,7 @@ import {
 } from '../lib/api'
 import { downloadBlob, downloadText, toFilename } from '../lib/download'
 import { useCurriculum } from '../lib/CurriculumContext'
+import { useI18n } from '../i18n'
 
 export default function TeacherDashboard() {
   const toast = useToast()
@@ -344,6 +345,7 @@ function ClassDetail({ klass, onChanged }) {
 
 function LessonMatrix({ students, byStudent }) {
   const { tracks } = useCurriculum()
+  const { pick } = useI18n()
   const [track, setTrack] = useState('python')
   const lessons = tracks[track].lessons
 
@@ -367,7 +369,7 @@ function LessonMatrix({ students, byStudent }) {
             <tr>
               <th style={{ position: 'sticky', left: 0, background: '#fff' }}>Student</th>
               {lessons.map((lesson, index) => (
-                <th key={lesson.id} className="num" title={lesson.title}>{index + 1}</th>
+                <th key={lesson.id} className="num" title={pick(lesson.title)}>{index + 1}</th>
               ))}
             </tr>
           </thead>
@@ -383,7 +385,7 @@ function LessonMatrix({ students, byStudent }) {
                   const started = Boolean(row)
                   return (
                     <td key={lesson.id} className="num"
-                        title={`${lesson.title}${row ? ` — ${row.completed_steps}/${row.total_steps} steps` : ' — not started'}`}>
+                        title={`${pick(lesson.title)}${row ? ` — ${row.completed_steps}/${row.total_steps} steps` : ' — not started'}`}>
                       {done ? '✅' : started ? '🟡' : '·'}
                     </td>
                   )
