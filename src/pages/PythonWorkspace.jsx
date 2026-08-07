@@ -31,8 +31,10 @@ export default function PythonWorkspace() {
   const [showLesson, setShowLesson] = useState(true)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [frameKey, setFrameKey] = useState(0)
+  const [stageFull, setStageFull] = useState(false)
 
   const frame = useRef(null)
+  const stagePane = useRef(null)
   const pendingRun = useRef(null)     // code waiting for a fresh frame to boot
   const savedCode = useRef('')
 
@@ -139,6 +141,13 @@ export default function PythonWorkspace() {
         case 'finished':
           setRunning(false)
           append([{ stream: 'sys', text: data.ok ? '\n▸ Program finished.\n' : '\n▸ Program stopped because of an error.\n' }])
+
+          // The console is hidden while the stage is fullscreen, so a crash
+          // would be silent. Come back out so the error is actually readable.
+          if (!data.ok) {
+            setStageFull(false)
+            if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {})
+          }
           break
         case 'needs-reload':
           break
@@ -181,6 +190,42 @@ export default function PythonWorkspace() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [save, run])
+
+  /* ------------------------------------------------------------ fullscreen
+   * Two things happen together: the pane is stretched over the whole app with
+   * CSS, and the browser is asked for real fullscreen. The CSS half is what
+   * actually matters — native fullscreen is a bonus that some browsers refuse.
+   *
+   * The iframe element is never moved or re-rendered, only restyled, so a game
+   * that is already running keeps running.
+   */
+  const toggleStageFull = useCallback(() => {
+    const next = !stageFull
+    setStageFull(next)
+
+    if (next) {
+      stagePane.current?.requestFullscreen?.().catch(() => {})
+      // The game only receives arrow keys if the frame has focus.
+      setTimeout(() => frame.current?.focus(), 60)
+    } else if (document.fullscreenElement) {
+      document.exitFullscreen?.().catch(() => {})
+    }
+  }, [stageFull])
+
+  // Esc leaves native fullscreen without telling React, so follow the browser.
+  useEffect(() => {
+    const onChange = () => { if (!document.fullscreenElement) setStageFull(false) }
+    document.addEventListener('fullscreenchange', onChange)
+    return () => document.removeEventListener('fullscreenchange', onChange)
+  }, [])
+
+  // Esc also leaves the CSS-only version, for browsers that refused the real one.
+  useEffect(() => {
+    if (!stageFull) return
+    const onKey = (event) => { if (event.key === 'Escape') setStageFull(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [stageFull])
 
   /* -------------------------------------------------------------- resizing */
   const startResize = (event) => {
@@ -283,10 +328,33 @@ export default function PythonWorkspace() {
         </div>
 
         {/* Game stage */}
-        <div className="ws-pane" style={{ flex: 1, borderLeft: '1px solid var(--dark-3)' }}>
+        <div
+          ref={stagePane}
+          className="ws-pane"
+          style={stageFull
+            ? { position: 'fixed', inset: 0, zIndex: 900, background: 'var(--dark-0)' }
+            : { flex: 1, borderLeft: '1px solid var(--dark-3)' }}
+        >
           <div className="console-head" style={{ borderBottom: '1px solid var(--dark-3)', borderTop: 0 }}>
             <span>{mode === 'game' ? 'Game stage' : 'Stage (console mode)'}</span>
+            <span style={{ flex: 1 }} />
+
+            {stageFull && (
+              <>
+                <button className="btn btn-ok btn-sm" onClick={run} disabled={running}>▶ Run</button>
+                <button className="btn btn-dark btn-sm" onClick={stop} disabled={!running}>■ Stop</button>
+              </>
+            )}
+
+            <button
+              className="btn btn-dark btn-sm"
+              onClick={toggleStageFull}
+              title={stageFull ? 'Leave fullscreen (Esc)' : 'Play the game full screen'}
+            >
+              {stageFull ? '✕ Leave fullscreen' : '⛶ Fullscreen'}
+            </button>
           </div>
+
           <div style={{ flex: 1, minHeight: 0 }}>
             <iframe
               key={frameKey}
