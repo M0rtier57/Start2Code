@@ -1,5 +1,6 @@
 import { NavLink, Navigate, Outlet, Route, Routes, useNavigate } from 'react-router-dom'
 
+import Logo from './components/Logo'
 import { Avatar, LoadingScreen } from './components/ui'
 import { useAuth } from './lib/AuthContext'
 import { isConfigured } from './lib/supabaseClient'
@@ -50,7 +51,7 @@ function Shell() {
             onClick={() => navigate('/')}
             style={{ background: 'none', border: 0, cursor: 'pointer', padding: 0 }}
           >
-            <span className="logo-mark">&lt;/&gt;</span> Start2Code
+            <Logo /> Start2Code
           </button>
 
           <nav className="row" style={{ marginLeft: 12 }}>
@@ -97,7 +98,7 @@ function SetupNeeded() {
     <div style={{ minHeight: '100%', display: 'grid', placeItems: 'center', padding: 24 }}>
       <div className="card" style={{ width: 'min(560px, 100%)' }}>
         <div className="logo" style={{ fontSize: '1.2rem' }}>
-          <span className="logo-mark">&lt;/&gt;</span> Start2Code
+          <Logo /> Start2Code
         </div>
 
         <h2 className="mt-4">Almost there — this build has no database yet</h2>

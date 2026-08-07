@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase, isConfigured } from '../lib/supabaseClient'
+import Logo from '../components/Logo'
 import { useToast } from '../components/ui'
 
 export default function Login() {
@@ -48,7 +49,7 @@ export default function Login() {
       <div style={{ width: 'min(430px, 100%)' }}>
         <div className="center" style={{ marginBottom: 22 }}>
           <div className="logo" style={{ justifyContent: 'center', fontSize: '1.4rem' }}>
-            <span className="logo-mark">&lt;/&gt;</span> Start2Code
+            <Logo size={44} /> Start2Code
           </div>
           <p className="muted mt-2">Learn to code with blocks and Python.</p>
         </div>
