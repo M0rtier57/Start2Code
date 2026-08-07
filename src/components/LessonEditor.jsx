@@ -3,7 +3,9 @@ import Editor from '@monaco-editor/react'
 
 import { Modal, useToast } from './ui'
 import { useAuth } from '../lib/AuthContext'
-import { createLesson, makeLessonKey, removeLessonStarter, updateLesson, uploadLessonStarter } from '../lib/api'
+import {
+  createLesson, makeLessonKey, removeLessonStarter, setLessonClasses, updateLesson, uploadLessonStarter
+} from '../lib/api'
 import { pickFile } from '../lib/download'
 import { BLANK_PYGAME, BLANK_PYTHON } from '../curriculum/python'
 
@@ -35,7 +37,7 @@ export default function LessonEditor({ lesson, builtIn, classes = [], canPublish
   const [uploading, setUploading] = useState(false)
   // New lessons start private, so nothing reaches children until it is ready.
   const [scope, setScope] = useState(lesson?.scope ?? 'private')
-  const [classId, setClassId] = useState(lesson?.class_id ?? classes[0]?.id ?? '')
+  const [classIds, setClassIds] = useState(lesson?.class_ids ?? [])
   const [busy, setBusy] = useState(false)
 
   const isPython = track === 'python'
@@ -88,7 +90,9 @@ export default function LessonEditor({ lesson, builtIn, classes = [], canPublish
     const cleanSteps = steps.map((step) => step.trim()).filter(Boolean)
     if (!title.trim()) return toast.error('Give the lesson a title.')
     if (cleanSteps.length === 0) return toast.error('Add at least one step.')
-    if (scope === 'class' && !classId) return toast.error('Choose which class this lesson is for.')
+    if (scope === 'class' && classIds.length === 0) {
+      return toast.error('Pick at least one class, or keep the lesson private.')
+    }
 
     const payload = {
       track,
@@ -99,22 +103,26 @@ export default function LessonEditor({ lesson, builtIn, classes = [], canPublish
       steps: cleanSteps,
       starter: isPython ? starter : null,
       starter_path: isPython ? null : starterPath,
-      scope,
-      class_id: scope === 'class' ? classId : null
+      scope
     }
+
+    // A lesson that is no longer class-scoped should not keep its old classes.
+    const links = scope === 'class' ? classIds : []
 
     setBusy(true)
     try {
       if (isEditing) {
         await updateLesson(lesson.id, payload)
+        await setLessonClasses(lesson.id, links)
         toast.success('Lesson updated')
       } else {
-        await createLesson({
+        const created = await createLesson({
           ...payload,
           // Reusing a built-in key makes this row override that lesson.
           lesson_key: builtIn ? builtIn.id : makeLessonKey(track),
           author_id: user.id
         })
+        if (links.length) await setLessonClasses(created.id, links)
         toast.success(builtIn ? 'Built-in lesson customised' : 'Lesson created')
       }
       onSaved?.()
@@ -190,23 +198,53 @@ export default function LessonEditor({ lesson, builtIn, classes = [], canPublish
             </select>
           </label>
 
-          {scope === 'class' && (
-            <label className="field grow">
-              Class
-              <select value={classId} onChange={(e) => setClassId(e.target.value)}>
-                <option value="">Choose a class…</option>
-                {classes.map((item) => (
-                  <option key={item.id} value={item.id}>{item.name}</option>
-                ))}
-              </select>
-            </label>
-          )}
         </div>
+
+        {/* A lesson can go to as many classes as you like. */}
+        {scope === 'class' && (
+          <div>
+            <label className="field" style={{ marginBottom: 0 }}>Classes</label>
+            {classes.length === 0 ? (
+              <p className="small muted mt-2">
+                You do not teach any classes yet — create one first, or keep this lesson private.
+              </p>
+            ) : (
+              <div className="col mt-2" style={{ gap: 6 }}>
+                {classes.map((item) => {
+                  const checked = classIds.includes(item.id)
+                  return (
+                    <label
+                      key={item.id}
+                      className="row"
+                      style={{
+                        gap: 10, cursor: 'pointer', padding: '8px 12px',
+                        border: `1px solid ${checked ? 'var(--brand)' : 'var(--line)'}`,
+                        background: checked ? 'var(--brand-soft)' : 'transparent',
+                        borderRadius: 10
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        style={{ width: 16, height: 16, margin: 0 }}
+                        onChange={() => setClassIds((current) => (
+                          checked ? current.filter((id) => id !== item.id) : [...current, item.id]
+                        ))}
+                      />
+                      <span style={{ fontWeight: 600 }}>{item.name}</span>
+                      {item.archived && <span className="badge">archived</span>}
+                    </label>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         <p className="tiny muted" style={{ marginTop: -6 }}>
           {scope === 'private' && 'Nobody else can see this yet. Change it here when you are ready to share.'}
-          {scope === 'class' && 'Every student in that class sees it in their lesson list.'}
-          {scope === 'global' && 'Every student and teacher on Start2Code sees it.'}
+          {scope === 'class' && `Students in ${classIds.length === 1 ? 'that class' : `those ${classIds.length} classes`} see it under “From your teacher”.`}
+          {scope === 'global' && 'Every student and teacher on Start2Code sees it, in the main lesson list.'}
         </p>
 
         {/* Steps */}

@@ -24,12 +24,12 @@ function fromRow(row) {
     starterPath: row.starter_path ?? null,
     concepts: [],
     track: row.track,
+    classIds: row.class_ids ?? [],
 
     // Extra fields, used by the management screens only.
     custom: true,
     rowId: row.id,
     scope: row.scope,
-    classId: row.class_id,
     authorId: row.author_id,
     position: row.position ?? 0,
     archived: row.archived
@@ -75,9 +75,24 @@ export function CurriculumProvider({ children }) {
       .filter((row) => row.scope !== 'private' || row.author_id === myId)
       .map(fromRow)
 
+    /*
+     * Two separate bodies of work, deliberately not mixed:
+     *
+     *   tracks       — the shared curriculum: built-in lessons plus anything an
+     *                  admin published to everyone. The same for every child.
+     *   classLessons — work set by a teacher for particular classes. These are
+     *                  shown on their own, so a child can tell what their
+     *                  teacher asked of them from what the platform offers.
+     *
+     * A private draft belongs with whichever group it will join once shared.
+     */
+    const isClassLesson = (lesson) => lesson.scope === 'class'
+    const publicCustom = custom.filter((lesson) => !isClassLesson(lesson))
+    const classLessons = custom.filter(isClassLesson)
+
     const tracks = {}
     for (const trackId of ['scratch', 'python']) {
-      const mine = custom.filter((lesson) => lesson.track === trackId)
+      const mine = publicCustom.filter((lesson) => lesson.track === trackId)
       const byKey = new Map(mine.map((lesson) => [lesson.id, lesson]))
       const builtInIds = new Set(BUILT_IN[trackId].map((lesson) => lesson.id))
 
@@ -100,16 +115,29 @@ export function CurriculumProvider({ children }) {
       }
     }
 
+    // Lookups must cover both groups — a workspace only knows a lesson id.
     const getLesson = (track, lessonId) =>
-      tracks[track]?.lessons.find((lesson) => lesson.id === lessonId) ?? null
+      tracks[track]?.lessons.find((lesson) => lesson.id === lessonId)
+      ?? classLessons.find((lesson) => lesson.id === lessonId && lesson.track === track)
+      ?? null
 
+    // "Next" stays inside whichever group the lesson belongs to, so finishing a
+    // class lesson never wanders off into the general curriculum.
     const nextLesson = (track, lessonId) => {
-      const list = tracks[track]?.lessons ?? []
+      const inClass = classLessons.filter((lesson) => lesson.track === track)
+      const list = inClass.some((lesson) => lesson.id === lessonId)
+        ? inClass
+        : (tracks[track]?.lessons ?? [])
+
       const index = list.findIndex((lesson) => lesson.id === lessonId)
       return index >= 0 && index < list.length - 1 ? list[index + 1] : null
     }
 
-    return { tracks, rows, loading, refresh, getLesson, nextLesson }
+    /** Class lessons for one track, or all of them. */
+    const classLessonsFor = (track) =>
+      track ? classLessons.filter((lesson) => lesson.track === track) : classLessons
+
+    return { tracks, classLessons, classLessonsFor, rows, loading, refresh, getLesson, nextLesson }
   }, [rows, loading, refresh, session])
 
   return <CurriculumContext.Provider value={value}>{children}</CurriculumContext.Provider>

@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import LessonEditor from './LessonEditor'
 import { Empty, Modal, useToast } from './ui'
 import { useAuth } from '../lib/AuthContext'
-import { deleteLesson, updateLesson } from '../lib/api'
+import { deleteLesson, setLessonClasses, updateLesson } from '../lib/api'
 import { useCurriculum } from '../lib/CurriculumContext'
 import { pythonLessons, scratchLessons } from '../curriculum'
 
@@ -52,7 +52,10 @@ export default function LessonsManager({ classes = [] }) {
   /** Pull a lesson back out of sight without deleting it. */
   const unpublish = async (row) => {
     try {
-      await updateLesson(row.id, { scope: 'private', class_id: null })
+      await updateLesson(row.id, { scope: 'private' })
+      // Drop the class links too, or re-sharing later would silently restore
+      // the old set of classes.
+      await setLessonClasses(row.id, [])
       toast.success('That lesson is private again — only you can see it')
       refresh()
     } catch (error) {
@@ -121,9 +124,15 @@ export default function LessonsManager({ classes = [] }) {
                       {row.scope === 'private' && <span className="badge">🔒 Only me</span>}
                       {row.scope === 'global' && <span className="badge badge-ok">🌍 Everyone</span>}
                       {row.scope === 'class' && (
-                        <span className="badge badge-brand">
-                          👩‍🏫 {classes.find((c) => c.id === row.class_id)?.name ?? 'A class'}
-                        </span>
+                        <div className="row wrap" style={{ gap: 4 }}>
+                          {(row.class_ids ?? []).length === 0
+                            ? <span className="badge badge-danger">no class chosen</span>
+                            : row.class_ids.map((id) => (
+                                <span key={id} className="badge badge-brand">
+                                  👩‍🏫 {classes.find((c) => c.id === id)?.name ?? 'A class'}
+                                </span>
+                              ))}
+                        </div>
                       )}
                       {row.scope === 'private' && owned && (
                         <div className="mt-2">

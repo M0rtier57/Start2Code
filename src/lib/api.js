@@ -231,13 +231,51 @@ export async function listActivityFor(studentIds, limit = 60) {
  * classes they are in, and their own drafts. RLS decides which rows come back.
  */
 export async function listLessons() {
-  return unwrap(
+  const rows = unwrap(
     await supabase
       .from('lessons')
-      .select('*')
+      .select('*, lesson_classes (class_id)')
       .order('position', { ascending: true })
       .order('created_at', { ascending: true })
   )
+
+  // Flatten the embedded join rows into a plain array of class ids.
+  return rows.map((row) => ({
+    ...row,
+    class_ids: (row.lesson_classes ?? []).map((link) => link.class_id)
+  }))
+}
+
+/**
+ * Replace the set of classes a lesson is shared with.
+ *
+ * Written as a diff rather than delete-then-insert so that re-saving a lesson
+ * without changing its classes touches nothing.
+ */
+export async function setLessonClasses(lessonId, classIds) {
+  const current = unwrap(
+    await supabase.from('lesson_classes').select('class_id').eq('lesson_id', lessonId)
+  ).map((row) => row.class_id)
+
+  const wanted = [...new Set(classIds)]
+  const toAdd = wanted.filter((id) => !current.includes(id))
+  const toRemove = current.filter((id) => !wanted.includes(id))
+
+  if (toRemove.length) {
+    const { error } = await supabase
+      .from('lesson_classes')
+      .delete()
+      .eq('lesson_id', lessonId)
+      .in('class_id', toRemove)
+    if (error) throw new Error(error.message)
+  }
+
+  if (toAdd.length) {
+    const { error } = await supabase
+      .from('lesson_classes')
+      .insert(toAdd.map((classId) => ({ lesson_id: lessonId, class_id: classId })))
+    if (error) throw new Error(error.message)
+  }
 }
 
 /** Keys must be unique and stable — progress rows point at them. */

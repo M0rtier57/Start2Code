@@ -15,7 +15,7 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const { user, displayName } = useAuth()
   const toast = useToast()
-  const { tracks } = useCurriculum()
+  const { tracks, classLessons } = useCurriculum()
 
   const [projects, setProjects] = useState([])
   const [progress, setProgress] = useState([])
@@ -134,6 +134,49 @@ export default function Dashboard() {
         <p className="small muted mt-4">
           In {classes.length === 1 ? 'class' : 'classes'}: {classes.map((c) => c.name).join(', ')}
         </p>
+      )}
+
+      {/* Work set by a teacher, kept clearly apart from the general curriculum. */}
+      {classLessons.length > 0 && (
+        <section className="mt-6">
+          <div className="row-between wrap">
+            <h2>📌 From your teacher</h2>
+            <span className="badge badge-brand">
+              {classLessons.length} lesson{classLessons.length === 1 ? '' : 's'} for your class
+            </span>
+          </div>
+          <p className="small muted mt-2">Lessons your teacher made especially for you.</p>
+
+          <div className="grid grid-auto mt-4">
+            {classLessons.map((lesson) => {
+              const row = progressByLesson.get(lesson.id)
+              const complete = row?.status === 'completed'
+              return (
+                <button
+                  key={lesson.id}
+                  className="tile"
+                  style={{ borderColor: complete ? 'var(--ok)' : 'var(--brand)', borderWidth: 2 }}
+                  onClick={() => start(lesson.track, lesson)}
+                >
+                  <div className="row-between">
+                    <KindBadge kind={lesson.track} />
+                    {complete
+                      ? <span className="badge badge-ok">✓ Done</span>
+                      : row ? <span className="badge badge-brand">In progress</span> : null}
+                  </div>
+                  <h3 className="mt-2">{lesson.title}</h3>
+                  <p className="small muted mt-2">{lesson.blurb}</p>
+                  {row && row.total_steps > 0 && (
+                    <div className="mt-4">
+                      <ProgressBar value={row.completed_steps} total={row.total_steps} tone={complete ? 'ok' : ''} />
+                    </div>
+                  )}
+                  <p className="tiny muted mt-2">⏱ about {lesson.minutes} min</p>
+                </button>
+              )
+            })}
+          </div>
+        </section>
       )}
 
       {/* Start something new — the fastest possible route into an editor. */}

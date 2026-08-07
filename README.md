@@ -160,8 +160,24 @@ Every lesson has one of three visibilities, chosen when writing it:
 | Visibility | Seen by | Who can set it |
 | --- | --- | --- |
 | 🔒 **Only me** | nobody else — a draft | anyone |
-| 👩‍🏫 **One class** | every student in that class | the teacher of that class, and admins |
+| 👩‍🏫 **Classes** | students in the classes you pick — **as many as you like** | the teacher of those classes, and admins |
 | 🌍 **Everyone** | every student and teacher | admins only |
+
+Class membership lives in the `lesson_classes` join table, so one lesson can be
+handed to several classes without being duplicated. Editing it updates every class
+at once.
+
+### Class lessons are kept separate
+
+Children see two distinct things on their dashboard:
+
+- **📌 From your teacher** — lessons set for their class, at the top, outlined.
+- **The tracks below** — the shared curriculum: the built-in lessons plus anything
+  an admin published to everyone. Identical for every child on the platform.
+
+They never mix. "Next lesson" also stays inside whichever group the child is
+working through, so finishing a class lesson does not wander off into the
+general curriculum.
 
 New lessons start **private**, so nothing reaches children until it is deliberately
 shared. **Make private** pulls a shared lesson back out of sight without deleting it.
