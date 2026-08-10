@@ -5,10 +5,11 @@ import { Empty, KindBadge, LoadingScreen, Modal, ProgressBar, timeAgo, useToast 
 import { useAuth } from '../lib/AuthContext'
 import {
   createProject, deleteProject, joinClassByCode, listMyClasses,
-  listMyProgress, listMyProjects, logActivity
+  listMyProgress, listMyProjects, listMyReviews, logActivity
 } from '../lib/api'
 import { downloadJson } from '../lib/download'
 import { useCurriculum } from '../lib/CurriculumContext'
+import { VerdictBadge, reviewCardClass } from '../components/ReviewForm'
 import { useI18n } from '../i18n'
 import { BLANK_PYGAME, BLANK_PYTHON } from '../curriculum/python'
 
@@ -22,6 +23,7 @@ export default function Dashboard() {
   const [projects, setProjects] = useState([])
   const [progress, setProgress] = useState([])
   const [classes, setClasses] = useState([])
+  const [reviews, setReviews] = useState(new Map())
   const [loading, setLoading] = useState(true)
   const [joinOpen, setJoinOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(null)
@@ -29,12 +31,13 @@ export default function Dashboard() {
 
   const refresh = useCallback(async () => {
     try {
-      const [projectRows, progressRows, classRows] = await Promise.all([
-        listMyProjects(), listMyProgress(), listMyClasses()
+      const [projectRows, progressRows, classRows, reviewMap] = await Promise.all([
+        listMyProjects(), listMyProgress(), listMyClasses(), listMyReviews()
       ])
       setProjects(projectRows)
       setProgress(progressRows)
       setClasses(classRows)
+      setReviews(reviewMap)
     } catch (error) {
       toast.error(error.message)
     } finally {
@@ -275,21 +278,54 @@ export default function Dashboard() {
             </Empty>
           ) : (
             <div className="grid grid-auto">
-              {projects.map((project) => (
-                <div key={project.id} className="card">
-                  <div className="row-between">
-                    <KindBadge kind={project.kind} />
-                    <button
-                      className="btn btn-quiet btn-sm"
-                      onClick={() => setConfirmDelete(project)}
-                      aria-label={`Delete ${project.title}`}
-                    >🗑</button>
+              {projects.map((project) => {
+                const review = reviews.get(project.id)
+                return (
+                  <div key={project.id} className={`card ${reviewCardClass(review)}`}>
+                    <div className="row-between">
+                      <KindBadge kind={project.kind} />
+                      <button
+                        className="btn btn-quiet btn-sm"
+                        onClick={() => setConfirmDelete(project)}
+                        aria-label={`${t('common.delete')} ${project.title}`}
+                      >🗑</button>
+                    </div>
+
+                    <h3 className="mt-4">{project.title}</h3>
+                    <p className="tiny muted mt-2">{t('dash.edited', { when: timeAgo(project.updated_at) })}</p>
+
+                    {/* What the teacher said. The gold or red edge catches the
+                        eye; this explains it. */}
+                    {review && (
+                      <>
+                        <div className="row mt-4 wrap">
+                          <VerdictBadge review={review} />
+                          {review.score != null && <span className="score-pill">{review.score}</span>}
+                        </div>
+
+                        <p className="small mt-2" style={{ fontWeight: 600 }}>
+                          {review.verdict === 'pass' ? t('review.wellDone') : t('review.needsWork')}
+                        </p>
+
+                        {review.feedback && (
+                          <div className="feedback">
+                            <strong className="tiny muted">{t('review.yourFeedback')}</strong>
+                            <div className="mt-2">{review.feedback}</div>
+                          </div>
+                        )}
+
+                        <p className="tiny muted mt-2">
+                          {t('review.reviewedWhen', { when: timeAgo(review.updated_at) })}
+                        </p>
+                      </>
+                    )}
+
+                    <button className="btn btn-block mt-4" onClick={() => openProject(project)}>
+                      {t('common.open')}
+                    </button>
                   </div>
-                  <h3 className="mt-4">{project.title}</h3>
-                  <p className="tiny muted mt-2">{t('dash.edited', { when: timeAgo(project.updated_at) })}</p>
-                  <button className="btn btn-block mt-4" onClick={() => openProject(project)}>{t('common.open')}</button>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>

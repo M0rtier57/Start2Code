@@ -224,6 +224,57 @@ export async function listActivityFor(studentIds, limit = 60) {
   )
 }
 
+/* ----------------------------------------------------------------- reviews */
+
+/** Reviews of a set of projects, keyed by project id for easy lookup. */
+export async function listReviewsFor(projectIds) {
+  if (!projectIds.length) return new Map()
+
+  const rows = unwrap(
+    await supabase
+      .from('reviews')
+      .select('*, reviewer:reviewer_id (full_name, email)')
+      .in('project_id', projectIds)
+  )
+  return new Map(rows.map((row) => [row.project_id, row]))
+}
+
+/** Every review of the signed-in child's own work. */
+export async function listMyReviews() {
+  const rows = unwrap(
+    await supabase.from('reviews').select('*, reviewer:reviewer_id (full_name)')
+  )
+  return new Map(rows.map((row) => [row.project_id, row]))
+}
+
+/**
+ * Mark a project. One review per project, so this upserts on project_id —
+ * re-marking corrected work replaces the old verdict instead of stacking up.
+ */
+export async function saveReview({ projectId, reviewerId, verdict, score, feedback }) {
+  return unwrap(
+    await supabase
+      .from('reviews')
+      .upsert(
+        {
+          project_id: projectId,
+          reviewer_id: reviewerId,
+          verdict,
+          score: score === '' || score == null ? null : Number(score),
+          feedback: feedback?.trim() || null,
+          updated_at: new Date().toISOString()
+        },
+        { onConflict: 'project_id' }
+      )
+      .select()
+      .single()
+  )
+}
+
+export async function deleteReview(projectId) {
+  return unwrap(await supabase.from('reviews').delete().eq('project_id', projectId))
+}
+
 /* ----------------------------------------------------------------- lessons */
 
 /**

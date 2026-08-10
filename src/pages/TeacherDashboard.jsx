@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import LessonsManager from '../components/LessonsManager'
+import ReviewForm, { VerdictBadge, reviewCardClass } from '../components/ReviewForm'
 import { Avatar, Empty, KindBadge, LoadingScreen, Modal, ProgressBar, timeAgo, useToast } from '../components/ui'
 import { useAuth } from '../lib/AuthContext'
 import {
   archiveClass, createClass, deleteClass, downloadScratchFile, listActivityFor,
-  listClassMembers, listMyClasses, listProgressFor, listProjectsFor, removeStudent
+  listClassMembers, listMyClasses, listProgressFor, listProjectsFor, listReviewsFor, removeStudent
 } from '../lib/api'
 import { downloadBlob, downloadText, toFilename } from '../lib/download'
 import { useCurriculum } from '../lib/CurriculumContext'
@@ -112,6 +113,7 @@ function ClassDetail({ klass, onChanged }) {
   const toast = useToast()
   const { isAdmin } = useAuth()
   const { tracks } = useCurriculum()
+  const { t } = useI18n()
 
   const [students, setStudents] = useState([])
   const [progress, setProgress] = useState([])
@@ -120,6 +122,8 @@ function ClassDetail({ klass, onChanged }) {
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState('progress')
   const [inspect, setInspect] = useState(null)
+  const [reviews, setReviews] = useState(new Map())
+  const [projectFilter, setProjectFilter] = useState('all')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -134,6 +138,7 @@ function ClassDetail({ klass, onChanged }) {
       setProgress(progressRows)
       setProjects(projectRows)
       setActivity(activityRows)
+      setReviews(await listReviewsFor(projectRows.map((p) => p.id)))
     } catch (error) {
       toast.error(error.message)
     } finally {
@@ -180,6 +185,16 @@ function ClassDetail({ klass, onChanged }) {
     downloadText(csv, toFilename(`${klass.name}-progress`, 'csv'), 'text/csv')
     toast.success('Exported class results')
   }
+
+  const unreviewedCount = projects.filter((p) => !reviews.has(p.id)).length
+
+  const visibleProjects = projects.filter((project) => {
+    const review = reviews.get(project.id)
+    if (projectFilter === 'unreviewed') return !review
+    if (projectFilter === 'pass') return review?.verdict === 'pass'
+    if (projectFilter === 'fail') return review?.verdict === 'fail'
+    return true
+  })
 
   if (loading) return <div className="mt-6"><LoadingScreen label="Loading class…" /></div>
 
@@ -291,24 +306,56 @@ function ClassDetail({ klass, onChanged }) {
             projects.length === 0
               ? <Empty emoji="📁" title="No projects yet">Projects appear as soon as students save their work.</Empty>
               : (
-                <div className="grid grid-auto">
-                  {projects.map((project) => {
-                    const owner = students.find((s) => s.id === project.owner_id)
-                    return (
-                      <div key={project.id} className="card">
-                        <div className="row-between">
-                          <KindBadge kind={project.kind} />
-                          <span className="tiny muted">{timeAgo(project.updated_at)}</span>
+                <>
+                  {/* Marking is the job here, so filtering by what still needs
+                      looking at comes before anything else. */}
+                  <div className="row wrap" style={{ marginBottom: 14 }}>
+                    {[
+                      ['all', t('review.filterAll')],
+                      ['unreviewed', t('review.filterUnreviewed')],
+                      ['pass', t('review.filterPass')],
+                      ['fail', t('review.filterFail')]
+                    ].map(([id, label]) => (
+                      <button
+                        key={id}
+                        className={`btn btn-sm ${projectFilter === id ? '' : 'btn-ghost'}`}
+                        onClick={() => setProjectFilter(id)}
+                      >
+                        {label}
+                        {id === 'unreviewed' && unreviewedCount > 0 && ` (${unreviewedCount})`}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="grid grid-auto">
+                    {visibleProjects.map((project) => {
+                      const owner = students.find((s) => s.id === project.owner_id)
+                      const review = reviews.get(project.id)
+                      return (
+                        <div key={project.id} className={`card ${reviewCardClass(review)}`}>
+                          <div className="row-between">
+                            <KindBadge kind={project.kind} />
+                            <span className="tiny muted">{timeAgo(project.updated_at)}</span>
+                          </div>
+                          <h3 className="mt-4">{project.title}</h3>
+                          <p className="small muted mt-2">{owner?.full_name || owner?.email || 'Unknown student'}</p>
+
+                          <div className="row mt-4 wrap">
+                            <VerdictBadge review={review} />
+                            {review?.score != null && <span className="score-pill">{review.score}</span>}
+                          </div>
+
+                          <button
+                            className="btn btn-ghost btn-block mt-4"
+                            onClick={() => setInspect({ project, owner })}
+                          >
+                            {review ? t('common.edit') : t('review.title')}
+                          </button>
                         </div>
-                        <h3 className="mt-4">{project.title}</h3>
-                        <p className="small muted mt-2">{owner?.full_name || owner?.email || 'Unknown student'}</p>
-                        <button className="btn btn-ghost btn-block mt-4" onClick={() => setInspect({ project, owner })}>
-                          Look at it
-                        </button>
-                      </div>
-                    )
-                  })}
-                </div>
+                      )
+                    })}
+                  </div>
+                </>
               )
           )}
 
@@ -336,7 +383,21 @@ function ClassDetail({ klass, onChanged }) {
         </>
       )}
 
-      {inspect && <ProjectInspector {...inspect} onClose={() => setInspect(null)} />}
+      {inspect && (
+        <ProjectInspector
+          {...inspect}
+          review={reviews.get(inspect.project.id) ?? null}
+          onReviewed={(saved) => {
+            setReviews((current) => {
+              const next = new Map(current)
+              if (saved) next.set(inspect.project.id, saved)
+              else next.delete(inspect.project.id)
+              return next
+            })
+          }}
+          onClose={() => setInspect(null)}
+        />
+      )}
     </div>
   )
 }
@@ -400,8 +461,9 @@ function LessonMatrix({ students, byStudent }) {
   )
 }
 
-function ProjectInspector({ project, owner, onClose }) {
+function ProjectInspector({ project, owner, review, onReviewed, onClose }) {
   const toast = useToast()
+  const [current, setCurrent] = useState(review)
 
   const download = async () => {
     try {
@@ -448,6 +510,12 @@ function ProjectInspector({ project, owner, onClose }) {
           from any Scratch workspace, or at scratch.mit.edu.
         </p>
       )}
+
+      <ReviewForm
+        project={project}
+        review={current}
+        onSaved={(saved) => { setCurrent(saved); onReviewed?.(saved) }}
+      />
     </Modal>
   )
 }

@@ -153,6 +153,48 @@ input:focus, select:focus, textarea:focus {
 .badge-brand   { background: var(--brand-soft);   color: var(--brand-dark); }
 .badge-danger  { background: var(--danger-soft);  color: var(--danger); }
 
+/* --- Reviewed work -------------------------------------------------------
+   A marked project wears its verdict on its edge: gold for a pass, red when
+   something still needs correcting. The glow makes a passed project feel like
+   a reward rather than just another card. */
+.card-pass {
+  border: 3px solid #e6a817;
+  box-shadow: 0 0 0 4px rgba(230, 168, 23, 0.14), var(--shadow);
+  background: linear-gradient(180deg, #fffdf5 0%, var(--surface) 55%);
+}
+.card-fail {
+  border: 3px solid var(--danger);
+  box-shadow: 0 0 0 4px rgba(224, 49, 49, 0.10), var(--shadow);
+  background: linear-gradient(180deg, #fff7f7 0%, var(--surface) 55%);
+}
+
+.badge-gold {
+  background: linear-gradient(135deg, #ffd75e, #e6a817);
+  color: #4a3200;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.feedback {
+  border-left: 3px solid var(--line);
+  padding: 8px 0 8px 12px;
+  margin-top: 12px;
+  font-size: 0.86rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+.card-pass .feedback { border-left-color: #e6a817; }
+.card-fail .feedback { border-left-color: var(--danger); }
+
+.score-pill {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: #f1f3f7;
+  color: var(--ink);
+}
+
 /* --- Progress ------------------------------------------------------------ */
 .bar { height: 8px; border-radius: 999px; background: #e9edf4; overflow: hidden; }
 .bar > i { display: block; height: 100%; border-radius: 999px; background: var(--brand); transition: width 0.3s ease; }

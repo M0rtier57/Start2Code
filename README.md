@@ -120,6 +120,24 @@ remounting the iframe — a guaranteed clean slate every time.
 
 ---
 
+## Marking work
+
+A teacher opens a project from **Classes → Projects**, looks at it, and marks it:
+
+- **🏆 Pass** — the project gets a **gold edge** on the child's dashboard.
+- **✎ Needs work** — a **red edge**, plus feedback saying what to correct.
+
+An optional score (0–100) can accompany either. Feedback is **required on a fail**:
+"needs work" with no explanation gives a child nothing to act on.
+
+There is one review per project, so re-marking corrected work replaces the old
+verdict instead of stacking up — the child always sees the current answer. The
+projects list can be filtered to **To review**, with a count, so a teacher can work
+through a class without hunting.
+
+Children can read the review of their own work but never write one; that is enforced
+by the policies in `supabase/reviews.sql`, not by hiding buttons.
+
 ## Roles
 
 | Role | Can do |
