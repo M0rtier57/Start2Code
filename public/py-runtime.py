@@ -6,7 +6,6 @@
 # over as window.s2cSource) and turns any crash into a message a child can act
 # on rather than a raw traceback.
 # =============================================================================
-import ast
 import sys
 import builtins
 import traceback
@@ -138,79 +137,12 @@ def _report(exc):
 
 
 # -----------------------------------------------------------------------------
-# Describe what the student actually wrote, so lesson steps can tick themselves.
-#
-# This reads the parse tree rather than searching the text. `while` inside a
-# comment or a string is not a loop, and ast knows the difference; a regular
-# expression never would.
-# -----------------------------------------------------------------------------
-def _analyse(source):
-    facts = {"kind": "python", "nodes": {}, "calls": {}, "imports": [], "names": [], "loops_nested": 0}
-
-    try:
-        tree = ast.parse(source)
-    except SyntaxError:
-        # Code that does not parse has no structure to report; the error report
-        # further down tells the student what to fix.
-        return facts
-
-    def bump(store, key):
-        store[key] = store.get(key, 0) + 1
-
-    for node in ast.walk(tree):
-        bump(facts["nodes"], type(node).__name__)
-
-        if isinstance(node, ast.Call):
-            target = node.func
-            if isinstance(target, ast.Name):
-                bump(facts["calls"], target.id)
-            elif isinstance(target, ast.Attribute):
-                # pygame.draw.rect(...) is recorded as both "rect" and
-                # "pygame.draw.rect" so a check can be loose or exact.
-                bump(facts["calls"], target.attr)
-                try:
-                    bump(facts["calls"], ast.unparse(target))
-                except Exception:  # noqa: BLE001 - unparse is best effort
-                    pass
-
-        elif isinstance(node, ast.Import):
-            for alias in node.names:
-                facts["imports"].append(alias.name.split(".")[0])
-
-        elif isinstance(node, ast.ImportFrom):
-            if node.module:
-                facts["imports"].append(node.module.split(".")[0])
-
-        elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
-            if node.id not in facts["names"]:
-                facts["names"].append(node.id)
-
-        elif isinstance(node, (ast.For, ast.While)):
-            # A loop containing another loop — needed for grid/nested exercises.
-            for inner in ast.walk(node):
-                if inner is not node and isinstance(inner, (ast.For, ast.While)):
-                    facts["loops_nested"] += 1
-                    break
-
-    facts["imports"] = sorted(set(facts["imports"]))
-    return facts
-
-
-# -----------------------------------------------------------------------------
 # Run the student's program.
 # -----------------------------------------------------------------------------
 _w.s2cStarted()
 
 _source = str(_w.s2cSource)
 _source_lines = _source.splitlines()
-
-# Report the structure before running anything: a program that crashes half way
-# still shows the child which steps they have completed.
-try:
-    _w.s2cFacts(_analyse(_source))
-except Exception as _err:  # noqa: BLE001 - checking must never break a run
-    print("(kon het werk niet automatisch controleren)", file=sys.stderr)
-
 _globals = {"__name__": "__main__", "__builtins__": builtins}
 
 try:

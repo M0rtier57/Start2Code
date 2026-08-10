@@ -173,11 +173,5 @@ export const en = {
   'lesson.complete': '🎉 Lesson complete!',
   'lesson.completeSub': 'Well done. Your teacher can see this is finished.',
   'lesson.next': 'Next: {title} →',
-  'lesson.checkWork': '🔍 Check my work',
-  'lesson.autoStep': 'This step is checked automatically in your code.',
-  'lesson.autoDone': 'found automatically',
-  'lesson.autoPending': 'checked for you',
-  'lesson.checkedNow': 'Your work has been checked',
-  'lesson.runToCheck': 'Run your program to have these steps checked.',
   'lesson.hide': 'Hide lesson'
 }

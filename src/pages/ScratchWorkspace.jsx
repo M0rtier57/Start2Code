@@ -49,8 +49,6 @@ export default function ScratchWorkspace() {
   const [saveState, setSaveState] = useState('saved')
   const [showLesson, setShowLesson] = useState(true)
   const [pickerOpen, setPickerOpen] = useState(false)
-  const [facts, setFacts] = useState(null)
-  const [checking, setChecking] = useState(false)
 
   const frame = useRef(null)
   const dirty = useRef(false)
@@ -171,30 +169,6 @@ export default function ScratchWorkspace() {
     }
   }, [project, editorReady, exportSb3, user, title, toast, t])
 
-  /**
-   * Ask the editor what the child has actually built, so checkable steps can
-   * tick themselves. Scratch has no useful "project changed" detail to listen
-   * to, so this runs when the child asks and after each save.
-   */
-  const checkWork = useCallback(async () => {
-    if (!frame.current || !editorReady) return
-    setChecking(true)
-    try {
-      const reply = await requestFromFrame(frame.current, { type: 'analyse' }, 'facts', 10_000)
-      setFacts(reply.facts)
-    } catch (error) {
-      console.warn('Could not check the work:', error.message)
-    } finally {
-      setChecking(false)
-    }
-  }, [editorReady])
-
-  // Check once the editor is up, so returning to a finished lesson shows its
-  // steps already ticked rather than blank.
-  useEffect(() => {
-    if (editorReady) checkWork()
-  }, [editorReady, checkWork])
-
   const download = useCallback(async () => {
     try {
       const blob = await exportSb3()
@@ -274,9 +248,6 @@ export default function ScratchWorkspace() {
           <LessonPanel
             track="scratch"
             lesson={lesson}
-            facts={facts}
-            checking={checking}
-            onCheck={checkWork}
             onClose={() => setShowLesson(false)}
             onPickLesson={(next) => (next?.id ? navigate(`/scratch/${projectId}?lesson=${next.id}`) : setPickerOpen(true))}
           />

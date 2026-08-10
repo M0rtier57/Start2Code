@@ -34,7 +34,6 @@ export default function PythonWorkspace() {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [frameKey, setFrameKey] = useState(0)
   const [stageFull, setStageFull] = useState(false)
-  const [facts, setFacts] = useState(null)   // what the code contains, from its parse tree
 
   const frame = useRef(null)
   const stagePane = useRef(null)
@@ -134,11 +133,6 @@ export default function PythonWorkspace() {
             )
             pendingRun.current = null
           }
-          break
-        case 'facts':
-          // Reported by py-runtime.py before the program runs, so steps tick
-          // even when the program later crashes.
-          setFacts(data.facts)
           break
         case 'started':
           setRunning(true)
@@ -298,7 +292,6 @@ export default function PythonWorkspace() {
           <LessonPanel
             track="python"
             lesson={lesson}
-            facts={facts}
             onClose={() => setShowLesson(false)}
             onPickLesson={(next) => (next?.id ? navigate(`/python/${projectId}?lesson=${next.id}`) : setPickerOpen(true))}
           />

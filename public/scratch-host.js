@@ -55,10 +55,6 @@
   function onVmInit(instance) {
     vm = instance;
 
-    // Handy when debugging what the analyser sees: open this frame's console
-    // and inspect __s2cVm. Nothing in the app depends on it.
-    window.__s2cVm = vm;
-
     // PROJECT_CHANGED fires on every meaningful edit; it is what the official
     // editor uses to decide whether there is unsaved work.
     vm.on('PROJECT_CHANGED', function () {
@@ -89,68 +85,6 @@
       });
   }
 
-  /**
-   * Describe what the child has actually built, so lesson steps can tick
-   * themselves.
-   *
-   * Every block in the VM carries an opcode ('control_forever',
-   * 'event_whenflagclicked', …). Counting those, plus recording which block
-   * sits inside which, is enough to answer questions like "did they put a move
-   * block inside a repeat?" — and it reads the real project rather than
-   * guessing from the picture on screen.
-   */
-  function analyse(requestId) {
-    if (!vm) return post({ type: 'error', requestId: requestId, message: 'Editor is not ready yet.' });
-
-    var blocks = {};     // opcode -> how many
-    var inside = {};     // "childOpcode<parentOpcode" -> how many
-    var variables = [];
-    var sprites = 0;
-
-    try {
-      vm.runtime.targets.forEach(function (target) {
-        // Clones share their blocks with the original; skip them.
-        if (!target.isOriginal) return;
-        if (!target.isStage) sprites += 1;
-
-        Object.keys(target.variables || {}).forEach(function (id) {
-          var name = target.variables[id].name;
-          if (name && variables.indexOf(name) === -1) variables.push(name);
-        });
-
-        var all = (target.blocks && target.blocks._blocks) || {};
-        Object.keys(all).forEach(function (id) {
-          var block = all[id];
-          if (!block || !block.opcode) return;
-          blocks[block.opcode] = (blocks[block.opcode] || 0) + 1;
-
-          // Walk up the chain of parents so "inside a forever loop" is still
-          // true when there are blocks stacked in between.
-          var seen = 0;
-          var parentId = block.parent;
-          while (parentId && seen < 50) {
-            var parent = all[parentId];
-            if (!parent) break;
-            if (parent.opcode && parent.opcode !== block.opcode) {
-              var key = block.opcode + '<' + parent.opcode;
-              inside[key] = (inside[key] || 0) + 1;
-            }
-            parentId = parent.parent;
-            seen += 1;
-          }
-        });
-      });
-
-      post({
-        type: 'facts',
-        requestId: requestId,
-        facts: { kind: 'scratch', blocks: blocks, inside: inside, variables: variables, sprites: sprites }
-      });
-    } catch (err) {
-      post({ type: 'error', requestId: requestId, message: String((err && err.message) || err) });
-    }
-  }
-
   function loadSb3(buffer) {
     if (!vm) return;
     vm.loadProject(buffer)
@@ -176,7 +110,6 @@
 
     switch (data.type) {
       case 'export-sb3':  exportSb3(data.requestId); break;
-      case 'analyse':     analyse(data.requestId); break;
       case 'load-sb3':    loadSb3(data.buffer); break;
       case 'new-project': newProject(); break;
       case 'green-flag':  if (vm) vm.greenFlag(); break;

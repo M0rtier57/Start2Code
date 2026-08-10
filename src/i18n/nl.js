@@ -178,11 +178,5 @@ export const nl = {
   'lesson.complete': '🎉 Les klaar!',
   'lesson.completeSub': 'Goed gedaan. Je leerkracht ziet dat dit af is.',
   'lesson.next': 'Volgende: {title} →',
-  'lesson.checkWork': '🔍 Controleer mijn werk',
-  'lesson.autoStep': 'Deze stap wordt automatisch gecontroleerd in je code.',
-  'lesson.autoDone': 'automatisch gevonden',
-  'lesson.autoPending': 'wordt gecontroleerd',
-  'lesson.checkedNow': 'Je werk is gecontroleerd',
-  'lesson.runToCheck': 'Start je programma om deze stappen te laten controleren.',
   'lesson.hide': 'Les verbergen'
 }
