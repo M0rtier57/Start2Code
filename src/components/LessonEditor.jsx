@@ -29,7 +29,13 @@ export default function LessonEditor({ lesson, builtIn, classes = [], canPublish
   // A built-in lesson carries { nl, en } text; a database row plain strings.
   const resolvedTitle = pick(seed?.title) || ''
   const resolvedBlurb = pick(seed?.blurb) || ''
-  const resolvedSteps = pick(seed?.steps) || []
+  // Built-in steps may be objects carrying an automatic check; the editor works
+  // in plain text, so they are flattened here. A teacher editing a built-in
+  // lesson keeps the words and loses the automatic checking — which is honest,
+  // since the check no longer necessarily matches what they wrote.
+  const resolvedSteps = (pick(seed?.steps) || []).map(
+    (step) => (typeof step === 'string' ? step : step?.text ?? '')
+  )
 
   const [track, setTrack] = useState(seed?.track ?? 'python')
   const [title, setTitle] = useState(resolvedTitle)

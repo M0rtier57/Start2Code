@@ -120,6 +120,41 @@ remounting the iframe — a guaranteed clean slate every time.
 
 ---
 
+## Steps that check themselves
+
+A lesson step can carry a `check` rule, and the box ticks itself when the child
+has genuinely done it. See [`src/curriculum/checks.js`](src/curriculum/checks.js)
+for the full rule list.
+
+```js
+// Scratch — read from the VM's blocks
+{ text: 'Put `move 10 steps` inside the repeat.',
+  check: { block: 'motion_movesteps', inside: 'control_repeat' } }
+
+// Python — read from the parse tree
+{ text: 'Write a loop that prints the 7 times table.',
+  check: { node: 'For', min: 2 } }
+```
+
+**Both read structure, never text.** Python uses its own `ast` module, so `while`
+in a comment or inside a string is not a loop; Scratch uses block opcodes, so the
+picture on the stage is irrelevant. A search-and-match on the source would get
+both wrong.
+
+- **Python** reports itself every time the child presses Run — and *before* the
+  program executes, so a crash still ticks the steps they got right.
+- **Scratch** has no useful change event, so the panel shows a **🔍 Check my work**
+  button, and also checks once when the editor opens.
+
+Automatic steps cannot be ticked by hand, and untick again if the child deletes
+the code — a box that stayed ticked would mislead the child and their teacher.
+Steps needing judgement ("try a different colour and see what happens") stay
+hand-ticked; not everything worth doing can be verified by a program.
+
+Gotcha worth knowing: an empty Scratch project **already contains one variable**,
+so count the variables and "make a variable" ticks itself immediately. Use
+`{ variableNamed: 'score' }` instead.
+
 ## Marking work
 
 A teacher opens a project from **Classes → Projects**, looks at it, and marks it:

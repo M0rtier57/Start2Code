@@ -119,6 +119,21 @@
       post({ type: 'started' });
     };
 
+    // What the program contains, worked out from its parse tree. Used to tick
+    // lesson steps automatically.
+    window.s2cFacts = function (facts) {
+      // Pyodide hands over a proxy object; convert it to plain JSON first.
+      var plain = facts;
+      try {
+        if (facts && typeof facts.toJs === 'function') {
+          plain = facts.toJs({ dict_converter: Object.fromEntries });
+        }
+      } catch (e) {
+        return;
+      }
+      post({ type: 'facts', facts: plain });
+    };
+
     // -------------------------------------------------------------------------
     // Execution
     //

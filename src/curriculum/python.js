@@ -27,13 +27,13 @@ export const pythonLessons = [
       nl: [
         'Druk op ▶ Start en kijk naar de console onderaan.',
         'Verander de woorden tussen de aanhalingstekens en start opnieuw.',
-        'Voeg een tweede `print(...)` toe met je lievelingseten.',
+        { text: 'Voeg een tweede `print(...)` toe met je lievelingseten.', check: { call: 'print', min: 2 } },
         'Haal eens één aanhalingsteken weg en start: lees de fout en herstel ze.'
       ],
       en: [
         'Press ▶ Run and watch the console at the bottom.',
         'Change the words inside the quotes and run it again.',
-        'Add a second `print(...)` line with your favourite food.',
+        { text: 'Add a second `print(...)` line with your favourite food.', check: { call: 'print', min: 2 } },
         'Try removing one quote mark and run it — read the error, then fix it.'
       ]
     },
@@ -55,13 +55,13 @@ print("Ik leer Python.")
     steps: {
       nl: [
         'Verander `naam` en `leeftijd` in die van jezelf.',
-        'Maak een nieuwe variabele `huisdier` en print ze.',
+        { text: 'Maak een nieuwe variabele `huisdier` en print ze.', check: { assigns: 'huisdier' } },
         'Tel 10 bij `leeftijd` op en print "Over 10 jaar ben ik ...".',
         'Merk op: tekst staat tussen aanhalingstekens, getallen niet.'
       ],
       en: [
         'Change `naam` and `leeftijd` to your own.',
-        'Make a new variable `huisdier` and print it.',
+        { text: 'Make a new variable `huisdier` and print it.', check: { assigns: 'huisdier' } },
         'Add 10 to `leeftijd` and print "In 10 years I will be ...".',
         'Notice that text goes in quotes but numbers do not.'
       ]
@@ -87,13 +87,13 @@ print(f"Volgend jaar word je {leeftijd + 1}.")
     steps: {
       nl: [
         'Start het — er verschijnt een venstertje dat je naam vraagt.',
-        'Stel nog een vraag en print het antwoord.',
+        { text: 'Stel nog een vraag en print het antwoord.', check: { call: 'input', min: 3 } },
         'Onthou: `input` geeft altijd tekst terug.',
         'Gebruik `int(...)` om tekst om te zetten naar een getal om mee te rekenen.'
       ],
       en: [
         'Run it — a box pops up asking for your name.',
-        'Ask one more question and print the answer.',
+        { text: 'Ask one more question and print the answer.', check: { call: 'input', min: 3 } },
         'Remember: `input` always gives back text.',
         'Use `int(...)` to turn text into a number you can do maths with.'
       ]
@@ -116,13 +116,13 @@ print(f"Over 5 jaar ben je {leeftijd + 5}.")
       nl: [
         'Start het een paar keer met verschillende getallen.',
         'Alles wat ingesprongen staat onder `if` gebeurt enkel als het klopt.',
-        'Voeg een `elif` toe voor precies 100.',
+        { text: 'Voeg een `elif` toe voor precies 100.', check: { node: 'If', min: 3 } },
         'Verzin je eigen regel — bijvoorbeeld: is een getal even? (`getal % 2 == 0`)'
       ],
       en: [
         'Run it a few times with different numbers.',
         'Everything indented under `if` only happens when it is true.',
-        'Add an `elif` for exactly 100.',
+        { text: 'Add an `elif` for exactly 100.', check: { node: 'If', min: 3 } },
         'Make your own rule — for example, is a number even? (`getal % 2 == 0`)'
       ]
     },
@@ -151,13 +151,13 @@ else:
         'Start het en tel de regels die verschijnen.',
         'Verander `range(5)` in `range(10)`.',
         'Lussen tellen vanaf 0 — kijk naar het eerste getal.',
-        'Schrijf een lus die de tafel van 7 print.'
+        { text: 'Schrijf een lus die de tafel van 7 print.', check: { node: 'For', min: 2 } }
       ],
       en: [
         'Run it and count the lines that appear.',
         'Change `range(5)` to `range(10)`.',
         'Loops start counting at 0 — check the first number printed.',
-        'Write a loop that prints the 7 times table.'
+        { text: 'Write a loop that prints the 7 times table.', check: { node: 'For', min: 2 } }
       ]
     },
     starter: `for i in range(5):
@@ -186,13 +186,13 @@ while teller > 0:
         'Voeg nog twee dieren toe aan de lijst.',
         'Print enkel het eerste dier met `dieren[0]`.',
         'Roep `groet(...)` op met een andere naam.',
-        'Schrijf je eigen functie die twee getallen optelt en het antwoord teruggeeft.'
+        { text: 'Schrijf je eigen functie die twee getallen optelt en het antwoord teruggeeft.', check: { node: 'FunctionDef', min: 2 } }
       ],
       en: [
         'Add two more animals to the list.',
         'Print only the first animal with `dieren[0]`.',
         'Call `groet(...)` with a different name.',
-        'Write your own function that adds two numbers and returns the answer.'
+        { text: 'Write your own function that adds two numbers and returns the answer.', check: { node: 'FunctionDef', min: 2 } }
       ]
     },
     starter: `dieren = ["kat", "hond", "vos"]
@@ -277,13 +277,13 @@ asyncio.run(main())
     steps: {
       nl: [
         'x gaat naar rechts, y gaat naar BENEDEN. Verplaats de cirkel met andere getallen.',
-        'Voeg een tweede cirkel toe in een andere kleur.',
+        { text: 'Voeg een tweede cirkel toe in een andere kleur.', check: { call: 'circle', min: 2 } },
         'Maak de rechthoek breder.',
         'Teken een gezicht: twee ogen en een mond.'
       ],
       en: [
         'x goes right, y goes DOWN. Move the circle by changing its numbers.',
-        'Add a second circle in a different colour.',
+        { text: 'Add a second circle in a different colour.', check: { call: 'circle', min: 2 } },
         'Make the rectangle wider.',
         'Draw a simple face: two eyes and a mouth.'
       ]
