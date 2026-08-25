@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getProgressFor, saveProgress } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
 import { useCurriculum } from '../lib/CurriculumContext'
+import { ReviewSummary } from './review'
 import { ProgressBar } from './ui'
 import { useI18n } from '../i18n'
 
@@ -77,6 +78,8 @@ export default function LessonPanel({ track, lesson, review, onPickLesson, onClo
           {onClose && <button className="btn btn-quiet btn-sm" onClick={onClose}>✕</button>}
         </div>
         <div className="body">
+          <ReviewSummary review={review} />
+
           <p className="small muted">
             {t('lesson.freePlaySub')}
           </p>
@@ -118,6 +121,8 @@ export default function LessonPanel({ track, lesson, review, onPickLesson, onClo
       </div>
 
       <div className="body">
+        <ReviewSummary review={review} />
+
         {steps.map((step, index) => {
           const note = review?.step_feedback?.[String(index)]
           return (

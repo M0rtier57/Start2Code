@@ -20,6 +20,43 @@ function renderStep(step) {
   return escaped.replace(/`([^`]+)`/g, '<code>$1</code>')
 }
 
+/**
+ * The verdict, score and general comment, shown to the child inside the editor.
+ *
+ * The per-step notes appear under their own steps, but the overall result has
+ * nowhere else to live in here — without this, a child opening their marked work
+ * would see the step notes and never learn whether they passed or what score
+ * they got.
+ */
+export function ReviewSummary({ review }) {
+  const { t } = useI18n()
+  if (!review) return null
+
+  const passed = review.verdict === 'pass'
+
+  return (
+    <div className={`review-summary ${passed ? 'pass' : 'fail'}`}>
+      <div className="row wrap" style={{ gap: 8 }}>
+        <strong>{passed ? t('review.passed') : t('review.failed')}</strong>
+        {review.score != null && <span className="review-summary-score">{review.score}</span>}
+      </div>
+
+      <p className="small mt-2">{passed ? t('review.wellDone') : t('review.needsWork')}</p>
+
+      {review.feedback && (
+        <div className="review-summary-note">
+          <strong>{t('review.teacherSays')}</strong>
+          <div>{review.feedback}</div>
+        </div>
+      )}
+
+      <p className="tiny mt-2" style={{ opacity: 0.7 }}>
+        {t('review.reviewedWhen', { when: timeAgo(review.updated_at) })}
+      </p>
+    </div>
+  )
+}
+
 /** The verdict badge, shown wherever a marked project appears. */
 export function VerdictBadge({ review }) {
   const { t } = useI18n()

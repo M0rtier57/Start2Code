@@ -327,6 +327,49 @@ input:focus, select:focus, textarea:focus {
 .console-out .sys { color: #74c0fc; }
 .console-empty { color: #5c6370; font-style: italic; }
 
+/* --- The mark, shown to the child inside the editor ---------------------- */
+.review-summary {
+  padding: 12px 14px;
+  border-radius: 10px;
+  margin-bottom: 16px;
+  border-left: 4px solid;
+  line-height: 1.5;
+}
+.review-summary.pass {
+  background: #2a2418;
+  border-left-color: #e6a817;
+  color: #f1e3c6;
+}
+.review-summary.fail {
+  background: #2c1f1f;
+  border-left-color: var(--danger);
+  color: #f3d3d3;
+}
+
+.review-summary-score {
+  font-family: var(--mono);
+  font-weight: 700;
+  padding: 1px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.review-summary-note {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+}
+.review-summary-note strong {
+  display: block;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.75;
+  margin-bottom: 4px;
+}
+
 /* --- Marking: the lesson steps inside the review panel ------------------- */
 .lesson-panel.review-panel { width: 420px; }
 
