@@ -4,9 +4,13 @@ import Editor from '@monaco-editor/react'
 
 import Console from '../components/Console'
 import LessonPanel from '../components/LessonPanel'
+import ReviewPanel from '../components/review'
 import { LoadingScreen, Modal, useToast } from '../components/ui'
 import { useAuth } from '../lib/AuthContext'
-import { getProject, logActivity, renameProject, savePythonCode } from '../lib/api'
+import {
+  getProfile, getProject, getReview, logActivity, renameProject, savePythonCode, submitProject
+} from '../lib/api'
+import { STATE_KEY, STATE_STYLE, submissionState } from '../lib/submission'
 import { downloadText, toFilename } from '../lib/download'
 import { useCurriculum } from '../lib/CurriculumContext'
 import { useI18n } from '../i18n'
@@ -17,7 +21,7 @@ export default function PythonWorkspace() {
   const { projectId } = useParams()
   const [params] = useSearchParams()
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, isTeacher } = useAuth()
   const toast = useToast()
   const { getLesson, tracks } = useCurriculum()
   const { t, pick } = useI18n()
@@ -35,6 +39,11 @@ export default function PythonWorkspace() {
   const [frameKey, setFrameKey] = useState(0)
   const [stageFull, setStageFull] = useState(false)
 
+  // Only used when a teacher opens someone else's work to mark it.
+  const [owner, setOwner] = useState(null)
+  const [review, setReview] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
+
   const frame = useRef(null)
   const stagePane = useRef(null)
   const pendingRun = useRef(null)     // code waiting for a fresh frame to boot
@@ -46,6 +55,11 @@ export default function PythonWorkspace() {
     // it here, a database lesson would never show up in the panel.
     [getLesson, project?.lesson_id, params]
   )
+
+  // A teacher opening a child's project is here to mark it, not to edit it.
+  // Saving is blocked by row level security anyway; this stops the app from
+  // even trying, and swaps the lesson steps for the marking panel.
+  const reviewing = Boolean(project && user && project.owner_id !== user.id && isTeacher)
 
   // Lessons up to the pygame ones only need a console; loading pygame for them
   // would mean a multi-second download for a two-line program.
@@ -66,6 +80,12 @@ export default function PythonWorkspace() {
         setCode(row.code ?? '')
         savedCode.current = row.code ?? ''
         setTitle(row.title)
+
+        // Whose work is this, and has it been marked already?
+        if (user && row.owner_id !== user.id) {
+          getProfile(row.owner_id).then(setOwner).catch(() => {})
+          getReview(row.id).then(setReview).catch(() => {})
+        }
       })
       .catch((error) => {
         toast.error(error.message)
@@ -78,7 +98,7 @@ export default function PythonWorkspace() {
 
   /* ------------------------------------------------------------------ save */
   const save = useCallback(async (nextCode = code, nextTitle = title) => {
-    if (!project) return
+    if (!project || reviewing) return
     setSaveState('saving')
     try {
       await savePythonCode(project.id, nextCode)
@@ -90,24 +110,24 @@ export default function PythonWorkspace() {
       setSaveState('error')
       toast.error(t('ws.saveError', { error: error.message }))
     }
-  }, [project, code, title, user, toast, t])
+  }, [project, code, title, user, toast, t, reviewing])
 
   // Autosave after a pause in typing, so nothing is ever lost at the bell.
   useEffect(() => {
-    if (!project || code === savedCode.current) return
+    if (!project || reviewing || code === savedCode.current) return
     setSaveState('dirty')
     const timer = setTimeout(() => save(code, title), AUTOSAVE_DELAY)
     return () => clearTimeout(timer)
-  }, [code, title, project, save])
+  }, [code, title, project, save, reviewing])
 
   // Warn before leaving with unsaved work.
   useEffect(() => {
     const handler = (event) => {
-      if (savedCode.current !== code) { event.preventDefault(); event.returnValue = '' }
+      if (!reviewing && savedCode.current !== code) { event.preventDefault(); event.returnValue = '' }
     }
     window.addEventListener('beforeunload', handler)
     return () => window.removeEventListener('beforeunload', handler)
-  }, [code])
+  }, [code, reviewing])
 
   /* ------------------------------------------------------------------- run */
   const append = useCallback((entries) => {
@@ -247,6 +267,26 @@ export default function PythonWorkspace() {
     window.addEventListener('mouseup', onUp)
   }
 
+
+  /* ------------------------------------------------------------- handing in */
+  const state = submissionState(project, review)
+
+  const handIn = useCallback(async () => {
+    if (!project) return
+    setSubmitting(true)
+    try {
+      // Hand in exactly what is on screen.
+      await save(code, title)
+      const updated = await submitProject(project.id)
+      setProject(updated)
+      toast.success(t('submit.done'))
+    } catch (error) {
+      toast.error(error.message)
+    } finally {
+      setSubmitting(false)
+    }
+  }, [project, toast, t, save, code, title])
+
   if (loading) return <div className="ws"><LoadingScreen label={t('ws.opening')} /></div>
 
   const saveLabel = {
@@ -267,12 +307,25 @@ export default function PythonWorkspace() {
           onChange={(e) => { setTitle(e.target.value); setSaveState('dirty') }}
           onBlur={() => save(code, title)}
           aria-label={t('ws.projectName')}
+          readOnly={reviewing}
         />
 
-        <span className="save-state">
-          <span className="dot" style={{ color: saveState === 'error' ? '#ff6b6b' : saveState === 'saved' ? '#51cf66' : '#fab005' }} />
-          {saveLabel}
-        </span>
+        {reviewing && (
+          <span className="badge badge-brand">
+            {t('review.viewingWork', { name: owner?.full_name || owner?.email || '…' })}
+          </span>
+        )}
+
+        {!reviewing && (
+          <span className="save-state">
+            <span className="dot" style={{ color: saveState === 'error' ? '#ff6b6b' : saveState === 'saved' ? '#51cf66' : '#fab005' }} />
+            {saveLabel}
+          </span>
+        )}
+
+        {!reviewing && state !== 'draft' && (
+          <span className={STATE_STYLE[state]}>{t(STATE_KEY[state])}</span>
+        )}
 
         <span style={{ flex: 1 }} />
 
@@ -284,11 +337,31 @@ export default function PythonWorkspace() {
         <button className="btn btn-dark btn-sm" onClick={() => downloadText(code, toFilename(title, 'py'))}>
           {t('ws.downloadPy')}
         </button>
-        <button className="btn btn-sm" onClick={() => save()} disabled={saveState === 'saving'}>{t('common.save')}</button>
+        {!reviewing && (
+          <button className="btn btn-sm" onClick={() => save()} disabled={saveState === 'saving'}>{t('common.save')}</button>
+        )}
+        {!reviewing && (
+          <button
+            className="btn btn-sm"
+            style={{ background: '#e6a817', color: '#4a3200' }}
+            onClick={handIn}
+            disabled={submitting}
+            title={t('submit.privateHint')}
+          >
+            {state === 'failed' ? t('submit.handAgain') : t('submit.hand')}
+          </button>
+        )}
       </div>
 
       <div className="ws-body">
-        {showLesson && (
+        {reviewing ? (
+          <ReviewPanel
+            project={project}
+            owner={owner}
+            review={review}
+            onReviewed={setReview}
+          />
+        ) : showLesson && (
           <LessonPanel
             track="python"
             lesson={lesson}

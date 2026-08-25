@@ -136,6 +136,38 @@ remounting the iframe — a guaranteed clean slate every time.
 
 ---
 
+## Handing work in, and marking it
+
+A child's projects are their own until they decide otherwise. **Nothing reaches
+the teacher automatically** — the child presses **📤 Indienen** (hand in), either
+from the dashboard card or from inside the editor.
+
+The state is derived from two timestamps rather than a status column, so it can
+never contradict itself (see [`src/lib/submission.js`](src/lib/submission.js)):
+
+| State | Meaning |
+| --- | --- |
+| `draft` | never handed in — private to the child |
+| `waiting` | handed in, and not marked since |
+| `passed` | marked good — gold edge |
+| `failed` | needs correcting — red edge, with feedback |
+
+Handing corrected work in again simply moves `submitted_at` past the review's
+timestamp, which puts it straight back at the top of the queue. Nothing has to
+be reset, and the old verdict stays visible until it is replaced.
+
+### The teacher marks it in the editor
+
+**Classes → Na te kijken** lists only handed-in work, oldest first, with a count
+on the tab. **Openen en beoordelen** opens the child's real project in the real
+editor — a teacher has to be able to run the game and read the blocks before
+judging it — with the marking panel in place of the lesson steps.
+
+While marking, the editor is read-only: autosave, the save button and the
+"unsaved changes" warning are all switched off, and the title cannot be edited.
+That is belt and braces — `projects_update` is owner-only, so the database would
+refuse the write anyway.
+
 ## Marking work
 
 A teacher opens a project from **Classes → Projects**, looks at it, and marks it:

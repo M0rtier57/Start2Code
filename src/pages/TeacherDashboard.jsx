@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 import LessonsManager from '../components/LessonsManager'
-import ReviewForm, { VerdictBadge, reviewCardClass } from '../components/ReviewForm'
+import { VerdictBadge, reviewCardClass } from '../components/review'
 import { Avatar, Empty, KindBadge, LoadingScreen, Modal, ProgressBar, timeAgo, useToast } from '../components/ui'
 import { useAuth } from '../lib/AuthContext'
 import {
@@ -10,6 +11,7 @@ import {
 } from '../lib/api'
 import { downloadBlob, downloadText, toFilename } from '../lib/download'
 import { useCurriculum } from '../lib/CurriculumContext'
+import { submissionState } from '../lib/submission'
 import { useI18n } from '../i18n'
 
 export default function TeacherDashboard() {
@@ -114,6 +116,7 @@ function ClassDetail({ klass, onChanged }) {
   const { isAdmin } = useAuth()
   const { tracks } = useCurriculum()
   const { t } = useI18n()
+  const navigate = useNavigate()
 
   const [students, setStudents] = useState([])
   const [progress, setProgress] = useState([])
@@ -123,7 +126,7 @@ function ClassDetail({ klass, onChanged }) {
   const [view, setView] = useState('progress')
   const [inspect, setInspect] = useState(null)
   const [reviews, setReviews] = useState(new Map())
-  const [projectFilter, setProjectFilter] = useState('all')
+  const [projectFilter, setProjectFilter] = useState('waiting')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -133,7 +136,7 @@ function ClassDetail({ klass, onChanged }) {
 
       const ids = roster.map((student) => student.id)
       const [progressRows, projectRows, activityRows] = await Promise.all([
-        listProgressFor(ids), listProjectsFor(ids), listActivityFor(ids)
+        listProgressFor(ids), listProjectsFor(ids, { submittedOnly: true }), listActivityFor(ids)
       ])
       setProgress(progressRows)
       setProjects(projectRows)
@@ -186,13 +189,16 @@ function ClassDetail({ klass, onChanged }) {
     toast.success('Exported class results')
   }
 
-  const unreviewedCount = projects.filter((p) => !reviews.has(p.id)).length
+  // "Waiting" means handed in and not marked since — so a child who corrects
+  // their work and hands it in again comes back to the top of the queue.
+  const stateOf = (project) => submissionState(project, reviews.get(project.id))
+  const waitingCount = projects.filter((p) => stateOf(p) === 'waiting').length
 
   const visibleProjects = projects.filter((project) => {
-    const review = reviews.get(project.id)
-    if (projectFilter === 'unreviewed') return !review
-    if (projectFilter === 'pass') return review?.verdict === 'pass'
-    if (projectFilter === 'fail') return review?.verdict === 'fail'
+    const state = stateOf(project)
+    if (projectFilter === 'waiting') return state === 'waiting'
+    if (projectFilter === 'pass') return state === 'passed'
+    if (projectFilter === 'fail') return state === 'failed'
     return true
   })
 
@@ -240,7 +246,9 @@ function ClassDetail({ klass, onChanged }) {
           <div className="tabs mt-6">
             <button className={`tab ${view === 'progress' ? 'active' : ''}`} onClick={() => setView('progress')}>Progress</button>
             <button className={`tab ${view === 'matrix' ? 'active' : ''}`} onClick={() => setView('matrix')}>Lesson by lesson</button>
-            <button className={`tab ${view === 'projects' ? 'active' : ''}`} onClick={() => setView('projects')}>Projects</button>
+            <button className={`tab ${view === 'projects' ? 'active' : ''}`} onClick={() => setView('projects')}>
+              {t('review.queue')}{waitingCount > 0 ? ` (${waitingCount})` : ''}
+            </button>
             <button className={`tab ${view === 'activity' ? 'active' : ''}`} onClick={() => setView('activity')}>Activity</button>
           </div>
 
@@ -304,17 +312,19 @@ function ClassDetail({ klass, onChanged }) {
 
           {view === 'projects' && (
             projects.length === 0
-              ? <Empty emoji="📁" title="No projects yet">Projects appear as soon as students save their work.</Empty>
+              ? (
+                <Empty emoji="📥" title={t('review.queueEmpty')}>
+                  {t('review.queueEmptySub')}
+                </Empty>
+              )
               : (
                 <>
-                  {/* Marking is the job here, so filtering by what still needs
-                      looking at comes before anything else. */}
                   <div className="row wrap" style={{ marginBottom: 14 }}>
                     {[
-                      ['all', t('review.filterAll')],
-                      ['unreviewed', t('review.filterUnreviewed')],
+                      ['waiting', t('review.filterUnreviewed')],
                       ['pass', t('review.filterPass')],
-                      ['fail', t('review.filterFail')]
+                      ['fail', t('review.filterFail')],
+                      ['all', t('review.filterAll')]
                     ].map(([id, label]) => (
                       <button
                         key={id}
@@ -322,34 +332,53 @@ function ClassDetail({ klass, onChanged }) {
                         onClick={() => setProjectFilter(id)}
                       >
                         {label}
-                        {id === 'unreviewed' && unreviewedCount > 0 && ` (${unreviewedCount})`}
+                        {id === 'waiting' && waitingCount > 0 && ` (${waitingCount})`}
                       </button>
                     ))}
                   </div>
+
+                  {visibleProjects.length === 0 && (
+                    <Empty emoji="✅" title={t('review.queueEmpty')}>{t('review.queueEmptySub')}</Empty>
+                  )}
 
                   <div className="grid grid-auto">
                     {visibleProjects.map((project) => {
                       const owner = students.find((s) => s.id === project.owner_id)
                       const review = reviews.get(project.id)
+                      const state = stateOf(project)
                       return (
                         <div key={project.id} className={`card ${reviewCardClass(review)}`}>
                           <div className="row-between">
                             <KindBadge kind={project.kind} />
-                            <span className="tiny muted">{timeAgo(project.updated_at)}</span>
+                            <span className="tiny muted">
+                              {t('submit.handedIn', { when: timeAgo(project.submitted_at) })}
+                            </span>
                           </div>
+
                           <h3 className="mt-4">{project.title}</h3>
-                          <p className="small muted mt-2">{owner?.full_name || owner?.email || 'Unknown student'}</p>
+                          <p className="small muted mt-2">{owner?.full_name || owner?.email || '—'}</p>
 
                           <div className="row mt-4 wrap">
-                            <VerdictBadge review={review} />
+                            {state === 'waiting'
+                              ? <span className="badge badge-brand">{t('submit.waiting')}</span>
+                              : <VerdictBadge review={review} />}
                             {review?.score != null && <span className="score-pill">{review.score}</span>}
                           </div>
 
+                          {/* Marking happens in the editor: a teacher has to be
+                              able to run the game and read the blocks first. */}
                           <button
-                            className="btn btn-ghost btn-block mt-4"
+                            className="btn btn-block mt-4"
+                            onClick={() => navigate(`/${project.kind}/${project.id}`)}
+                          >
+                            {t('review.openAndReview')}
+                          </button>
+
+                          <button
+                            className="btn btn-quiet btn-block btn-sm mt-2"
                             onClick={() => setInspect({ project, owner })}
                           >
-                            {review ? t('common.edit') : t('review.title')}
+                            {t('review.quickLook')}
                           </button>
                         </div>
                       )
@@ -461,9 +490,10 @@ function LessonMatrix({ students, byStudent }) {
   )
 }
 
-function ProjectInspector({ project, owner, review, onReviewed, onClose }) {
+function ProjectInspector({ project, owner, onClose }) {
   const toast = useToast()
-  const [current, setCurrent] = useState(review)
+  const { t } = useI18n()
+  const navigate = useNavigate()
 
   const download = async () => {
     try {
@@ -487,7 +517,14 @@ function ProjectInspector({ project, owner, review, onReviewed, onClose }) {
       title={project.title}
       onClose={onClose}
       wide
-      footer={<button className="btn" onClick={download}>⬇ Download</button>}
+      footer={
+        <>
+          <button className="btn btn-ghost" onClick={download}>⬇ Download</button>
+          <button className="btn" onClick={() => navigate(`/${project.kind}/${project.id}`)}>
+            {t('review.openAndReview')}
+          </button>
+        </>
+      }
     >
       <p className="small muted">
         {owner?.full_name || owner?.email} · edited {timeAgo(project.updated_at)}
@@ -511,11 +548,6 @@ function ProjectInspector({ project, owner, review, onReviewed, onClose }) {
         </p>
       )}
 
-      <ReviewForm
-        project={project}
-        review={current}
-        onSaved={(saved) => { setCurrent(saved); onReviewed?.(saved) }}
-      />
     </Modal>
   )
 }

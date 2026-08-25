@@ -18,7 +18,7 @@ export async function listMyProjects() {
   return unwrap(
     await supabase
       .from('projects')
-      .select('id, kind, title, lesson_id, thumbnail, updated_at, created_at')
+      .select('id, kind, title, lesson_id, thumbnail, updated_at, created_at, submitted_at')
       .order('updated_at', { ascending: false })
   )
 }
@@ -47,6 +47,31 @@ export async function deleteProject(project) {
     await supabase.storage.from(BUCKET).remove([project.storage_path])
   }
   return unwrap(await supabase.from('projects').delete().eq('id', project.id))
+}
+
+/**
+ * Hand a project in for marking.
+ *
+ * Setting the timestamp again is exactly how a child resubmits corrected work:
+ * the teacher's queue asks for projects submitted since they were last marked,
+ * so a fresh submission reappears there without anything else being cleared.
+ */
+export async function submitProject(id) {
+  return unwrap(
+    await supabase
+      .from('projects')
+      .update({ submitted_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single()
+  )
+}
+
+/** Take it back out of the queue — for a child who handed in too early. */
+export async function withdrawProject(id) {
+  return unwrap(
+    await supabase.from('projects').update({ submitted_at: null }).eq('id', id).select().single()
+  )
 }
 
 /** Python projects keep their source in the row itself. */
@@ -201,15 +226,19 @@ export async function listProgressFor(studentIds) {
   return unwrap(await supabase.from('lesson_progress').select('*').in('user_id', studentIds))
 }
 
-export async function listProjectsFor(studentIds) {
+export async function listProjectsFor(studentIds, { submittedOnly = false } = {}) {
   if (!studentIds.length) return []
-  return unwrap(
-    await supabase
-      .from('projects')
-      .select('id, owner_id, kind, title, lesson_id, updated_at, storage_path, code')
-      .in('owner_id', studentIds)
-      .order('updated_at', { ascending: false })
-  )
+
+  let query = supabase
+    .from('projects')
+    .select('id, owner_id, kind, title, lesson_id, updated_at, submitted_at, storage_path, code')
+    .in('owner_id', studentIds)
+
+  // The review queue only contains work a child has actually handed in.
+  // Everything else is theirs alone until they decide it is ready.
+  if (submittedOnly) query = query.not('submitted_at', 'is', null)
+
+  return unwrap(await query.order('submitted_at', { ascending: true, nullsFirst: false }))
 }
 
 export async function listActivityFor(studentIds, limit = 60) {
@@ -268,6 +297,21 @@ export async function saveReview({ projectId, reviewerId, verdict, score, feedba
       )
       .select()
       .single()
+  )
+}
+
+/** One profile, for showing whose work a teacher is looking at. */
+export async function getProfile(id) {
+  if (!id) return null
+  return unwrap(
+    await supabase.from('profiles').select('id, full_name, email').eq('id', id).maybeSingle()
+  )
+}
+
+/** The review of a single project, if it has one. */
+export async function getReview(projectId) {
+  return unwrap(
+    await supabase.from('reviews').select('*').eq('project_id', projectId).maybeSingle()
   )
 }
 

@@ -2,11 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import LessonPanel from '../components/LessonPanel'
+import ReviewPanel from '../components/review'
 import { LoadingScreen, Modal, useToast } from '../components/ui'
 import { useAuth } from '../lib/AuthContext'
 import {
-  downloadScratchFile, getProject, lessonStarterUrl, logActivity, renameProject, saveScratchFile
+  downloadScratchFile, getProfile, getProject, getReview, lessonStarterUrl, logActivity,
+  renameProject, saveScratchFile, submitProject
 } from '../lib/api'
+import { STATE_KEY, STATE_STYLE, submissionState } from '../lib/submission'
 import { downloadBlob, pickFile, toFilename } from '../lib/download'
 import { useCurriculum } from '../lib/CurriculumContext'
 import { useI18n } from '../i18n'
@@ -37,7 +40,7 @@ export default function ScratchWorkspace() {
   const { projectId } = useParams()
   const [params] = useSearchParams()
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, isTeacher } = useAuth()
   const toast = useToast()
   const { getLesson, tracks, loading: curriculumLoading } = useCurriculum()
   const { t, pick } = useI18n()
@@ -50,9 +53,19 @@ export default function ScratchWorkspace() {
   const [showLesson, setShowLesson] = useState(true)
   const [pickerOpen, setPickerOpen] = useState(false)
 
+  // Only used when a teacher opens someone else's work to mark it.
+  const [owner, setOwner] = useState(null)
+  const [review, setReview] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
+
   const frame = useRef(null)
   const dirty = useRef(false)
   const contentLoaded = useRef(false)   // guards against loading twice
+
+  // A teacher opening a child's project is marking it, not editing it. Saving
+  // is blocked by row level security anyway; this stops the app from trying,
+  // and swaps the lesson steps for the marking panel.
+  const reviewing = Boolean(project && user && project.owner_id !== user.id && isTeacher)
 
   const lesson = useMemo(
     () => getLesson('scratch', project?.lesson_id ?? params.get('lesson')),
@@ -69,6 +82,11 @@ export default function ScratchWorkspace() {
         if (!active) return
         setProject(row)
         setTitle(row.title)
+
+        if (user && row.owner_id !== user.id) {
+          getProfile(row.owner_id).then(setOwner).catch(() => {})
+          getReview(row.id).then(setReview).catch(() => {})
+        }
       })
       .catch((error) => { toast.error(error.message); navigate('/') })
       .finally(() => { if (active) setLoading(false) })
@@ -153,7 +171,7 @@ export default function ScratchWorkspace() {
   }, [])
 
   const save = useCallback(async () => {
-    if (!project || !editorReady) return
+    if (!project || !editorReady || reviewing) return
     setSaveState('saving')
     try {
       const blob = await exportSb3()
@@ -167,7 +185,7 @@ export default function ScratchWorkspace() {
       setSaveState('error')
       toast.error(t('ws.saveError', { error: error.message }))
     }
-  }, [project, editorReady, exportSb3, user, title, toast, t])
+  }, [project, editorReady, exportSb3, user, title, toast, t, reviewing])
 
   const download = useCallback(async () => {
     try {
@@ -189,15 +207,15 @@ export default function ScratchWorkspace() {
 
   // Autosave every couple of minutes; children forget, and the bell does not.
   useEffect(() => {
-    const timer = setInterval(() => { if (dirty.current) save() }, 120_000)
+    const timer = setInterval(() => { if (dirty.current && !reviewing) save() }, 120_000)
     return () => clearInterval(timer)
-  }, [save])
+  }, [save, reviewing])
 
   useEffect(() => {
-    const handler = (event) => { if (dirty.current) { event.preventDefault(); event.returnValue = '' } }
+    const handler = (event) => { if (dirty.current && !reviewing) { event.preventDefault(); event.returnValue = '' } }
     window.addEventListener('beforeunload', handler)
     return () => window.removeEventListener('beforeunload', handler)
-  }, [])
+  }, [reviewing])
 
   useEffect(() => {
     const onKey = (event) => {
@@ -206,6 +224,27 @@ export default function ScratchWorkspace() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [save])
+
+
+  /* ------------------------------------------------------------- handing in */
+  const state = submissionState(project, review)
+
+  const handIn = useCallback(async () => {
+    if (!project) return
+    setSubmitting(true)
+    try {
+      // Save the current blocks first, so the teacher marks what the
+      // child actually sees.
+      await save()
+      const updated = await submitProject(project.id)
+      setProject(updated)
+      toast.success(t('submit.done'))
+    } catch (error) {
+      toast.error(error.message)
+    } finally {
+      setSubmitting(false)
+    }
+  }, [project, toast, t, save])
 
   if (loading) return <div className="ws"><LoadingScreen label={t('ws.opening')} /></div>
 
@@ -226,12 +265,25 @@ export default function ScratchWorkspace() {
           value={title}
           onChange={(e) => { setTitle(e.target.value); setSaveState('dirty'); dirty.current = true }}
           aria-label={t('ws.projectName')}
+          readOnly={reviewing}
         />
 
-        <span className="save-state">
-          <span className="dot" style={{ color: saveState === 'error' ? '#ff6b6b' : saveState === 'saved' ? '#51cf66' : '#fab005' }} />
-          {saveLabel}
-        </span>
+        {reviewing && (
+          <span className="badge badge-brand">
+            {t('review.viewingWork', { name: owner?.full_name || owner?.email || '…' })}
+          </span>
+        )}
+
+        {!reviewing && (
+          <span className="save-state">
+            <span className="dot" style={{ color: saveState === 'error' ? '#ff6b6b' : saveState === 'saved' ? '#51cf66' : '#fab005' }} />
+            {saveLabel}
+          </span>
+        )}
+
+        {!reviewing && state !== 'draft' && (
+          <span className={STATE_STYLE[state]}>{t(STATE_KEY[state])}</span>
+        )}
 
         <span style={{ flex: 1 }} />
 
@@ -240,11 +292,31 @@ export default function ScratchWorkspace() {
         </button>
         <button className="btn btn-dark btn-sm" onClick={upload} disabled={!editorReady}>{t('ws.openSb3')}</button>
         <button className="btn btn-dark btn-sm" onClick={download} disabled={!editorReady}>{t('ws.downloadSb3')}</button>
-        <button className="btn btn-sm" onClick={save} disabled={!editorReady || saveState === 'saving'}>{t('common.save')}</button>
+        {!reviewing && (
+          <button className="btn btn-sm" onClick={save} disabled={!editorReady || saveState === 'saving'}>{t('common.save')}</button>
+        )}
+        {!reviewing && (
+          <button
+            className="btn btn-sm"
+            style={{ background: '#e6a817', color: '#4a3200' }}
+            onClick={handIn}
+            disabled={submitting || !editorReady}
+            title={t('submit.privateHint')}
+          >
+            {state === 'failed' ? t('submit.handAgain') : t('submit.hand')}
+          </button>
+        )}
       </div>
 
       <div className="ws-body">
-        {showLesson && (
+        {reviewing ? (
+          <ReviewPanel
+            project={project}
+            owner={owner}
+            review={review}
+            onReviewed={setReview}
+          />
+        ) : showLesson && (
           <LessonPanel
             track="scratch"
             lesson={lesson}

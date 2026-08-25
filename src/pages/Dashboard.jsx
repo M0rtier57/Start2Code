@@ -5,11 +5,12 @@ import { Empty, KindBadge, LoadingScreen, Modal, ProgressBar, timeAgo, useToast 
 import { useAuth } from '../lib/AuthContext'
 import {
   createProject, deleteProject, joinClassByCode, listMyClasses,
-  listMyProgress, listMyProjects, listMyReviews, logActivity
+  listMyProgress, listMyProjects, listMyReviews, logActivity, submitProject
 } from '../lib/api'
 import { downloadJson } from '../lib/download'
 import { useCurriculum } from '../lib/CurriculumContext'
-import { VerdictBadge, reviewCardClass } from '../components/ReviewForm'
+import { STATE_KEY, STATE_STYLE, canSubmit, submissionState } from '../lib/submission'
+import { VerdictBadge, reviewCardClass } from '../components/review'
 import { useI18n } from '../i18n'
 import { BLANK_PYGAME, BLANK_PYTHON } from '../curriculum/python'
 
@@ -92,6 +93,17 @@ export default function Dashboard() {
   }, [user, navigate, toast, t])
 
   const openProject = (project) => navigate(`/${project.kind}/${project.id}`)
+
+  /** Hand a finished project to the teacher for marking. */
+  const handIn = async (project) => {
+    try {
+      const updated = await submitProject(project.id)
+      setProjects((current) => current.map((p) => (p.id === updated.id ? { ...p, ...updated } : p)))
+      toast.success(t('submit.done'))
+    } catch (error) {
+      toast.error(error.message)
+    }
+  }
 
   const remove = async (project) => {
     try {
@@ -280,6 +292,7 @@ export default function Dashboard() {
             <div className="grid grid-auto">
               {projects.map((project) => {
                 const review = reviews.get(project.id)
+                const state = submissionState(project, review)
                 return (
                   <div key={project.id} className={`card ${reviewCardClass(review)}`}>
                     <div className="row-between">
@@ -293,6 +306,10 @@ export default function Dashboard() {
 
                     <h3 className="mt-4">{project.title}</h3>
                     <p className="tiny muted mt-2">{t('dash.edited', { when: timeAgo(project.updated_at) })}</p>
+
+                    <div className="row mt-2 wrap">
+                      <span className={STATE_STYLE[state]}>{t(STATE_KEY[state])}</span>
+                    </div>
 
                     {/* What the teacher said. The gold or red edge catches the
                         eye; this explains it. */}
@@ -323,6 +340,18 @@ export default function Dashboard() {
                     <button className="btn btn-block mt-4" onClick={() => openProject(project)}>
                       {t('common.open')}
                     </button>
+
+                    {/* Only handed-in work reaches the teacher, so this is the
+                        child's own decision about when something is ready. */}
+                    {canSubmit(state) && (
+                      <button
+                        className="btn btn-ghost btn-block mt-2"
+                        onClick={() => handIn(project)}
+                        title={t('submit.privateHint')}
+                      >
+                        {state === 'failed' ? t('submit.handAgain') : t('submit.hand')}
+                      </button>
+                    )}
                   </div>
                 )
               })}
