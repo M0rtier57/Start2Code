@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from 'react'
-import { saveProgress } from '../lib/api'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { getProgressFor, saveProgress } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
 import { useCurriculum } from '../lib/CurriculumContext'
 import { ProgressBar } from './ui'
@@ -8,10 +8,15 @@ import { useI18n } from '../i18n'
 /**
  * The step-by-step guide shown beside both editors.
  *
- * Which individual steps are ticked is kept in localStorage (it is per-device
- * detail), while the count is written to the database so teachers can see it.
+ * Ticked steps are written to the database, not just localStorage: a teacher
+ * needs to see which steps a child has done, and the ticks should survive the
+ * child moving to another computer. localStorage stays as an instant local
+ * cache so the panel never renders empty while the row loads.
+ *
+ * When the work has been marked, the teacher's note for a step is shown right
+ * underneath it — which is where a child is actually looking.
  */
-export default function LessonPanel({ track, lesson, onPickLesson, onClose }) {
+export default function LessonPanel({ track, lesson, review, onPickLesson, onClose }) {
   const { user } = useAuth()
   const { nextLesson } = useCurriculum()
   const { t, pick } = useI18n()
@@ -22,7 +27,27 @@ export default function LessonPanel({ track, lesson, onPickLesson, onClose }) {
   // effect, so switching lesson never renders the previous lesson's ticks.
   const stored = useMemo(() => readSteps(storageKey), [storageKey])
   const [edited, setEdited] = useState(null)
-  const done = edited && edited.key === storageKey ? edited.steps : stored
+  const [fromServer, setFromServer] = useState(null)
+
+  // The saved row wins once it arrives, so ticks follow the child between
+  // devices; until then the local cache keeps the panel filled in.
+  const base = fromServer && fromServer.key === storageKey ? fromServer.steps : stored
+  const done = edited && edited.key === storageKey ? edited.steps : base
+
+  useEffect(() => {
+    let active = true
+    if (!user || !lesson) return undefined
+
+    getProgressFor(user.id, track, lesson.id)
+      .then((row) => {
+        if (!active || !row) return
+        const saved = Array.isArray(row.steps_done) ? row.steps_done : []
+        setFromServer({ key: `s2c:steps:${user.id}:${lesson.id}`, steps: new Set(saved) })
+      })
+      .catch(() => {})
+
+    return () => { active = false }
+  }, [user, lesson, track])
 
   // Built-in lessons carry { nl: [...], en: [...] }; custom ones a plain array.
   const steps = lesson ? (pick(lesson.steps) || []) : []
@@ -36,7 +61,8 @@ export default function LessonPanel({ track, lesson, onPickLesson, onClose }) {
         track,
         lessonId: lesson.id,
         completedSteps: nextDone.size,
-        totalSteps: (pick(lesson.steps) || []).length
+        totalSteps: (pick(lesson.steps) || []).length,
+        stepsDone: [...nextDone]
       })
     } catch (error) {
       console.warn('Could not save progress:', error.message)
@@ -92,17 +118,29 @@ export default function LessonPanel({ track, lesson, onPickLesson, onClose }) {
       </div>
 
       <div className="body">
-        {steps.map((step, index) => (
-          <button
-            key={index}
-            className={`step ${done.has(index) ? 'done' : ''}`}
-            onClick={() => toggle(index)}
-            aria-pressed={done.has(index)}
-          >
-            <span className="step-check">{done.has(index) ? '✓' : ''}</span>
-            <span dangerouslySetInnerHTML={{ __html: renderStep(step) }} />
-          </button>
-        ))}
+        {steps.map((step, index) => {
+          const note = review?.step_feedback?.[String(index)]
+          return (
+            <div key={index}>
+              <button
+                className={`step ${done.has(index) ? 'done' : ''}`}
+                onClick={() => toggle(index)}
+                aria-pressed={done.has(index)}
+                style={note ? { marginBottom: 0 } : undefined}
+              >
+                <span className="step-check">{done.has(index) ? '✓' : ''}</span>
+                <span dangerouslySetInnerHTML={{ __html: renderStep(step) }} />
+              </button>
+
+              {note && (
+                <div className="step-note">
+                  <strong>{t('review.teacherSays')}</strong>
+                  <div>{note}</div>
+                </div>
+              )}
+            </div>
+          )
+        })}
 
         {finished && (
           <div className="card card-flat mt-4" style={{ background: '#1b2a20', borderColor: '#2f5c3a', color: '#c3f0cd' }}>

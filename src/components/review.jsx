@@ -1,11 +1,24 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { useToast } from './ui'
+import { timeAgo, useToast } from './ui'
 import { useAuth } from '../lib/AuthContext'
-import { deleteReview, saveReview } from '../lib/api'
-import { timeAgo } from './ui'
+import { deleteReview, getProgressFor, saveReview } from '../lib/api'
+import { useCurriculum } from '../lib/CurriculumContext'
 import { useI18n } from '../i18n'
+
+/**
+ * Steps may contain `code spans`. The text comes from our own curriculum files
+ * or from a teacher's own lesson, never from a child — but escape first anyway.
+ */
+function renderStep(step) {
+  const text = typeof step === 'string' ? step : (step?.text ?? '')
+  const escaped = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+  return escaped.replace(/`([^`]+)`/g, '<code>$1</code>')
+}
 
 /** The verdict badge, shown wherever a marked project appears. */
 export function VerdictBadge({ review }) {
@@ -35,12 +48,36 @@ export default function ReviewPanel({ project, owner, review, onReviewed }) {
   const { user } = useAuth()
   const navigate = useNavigate()
   const toast = useToast()
-  const { t } = useI18n()
+  const { t, pick } = useI18n()
+  const { getLesson } = useCurriculum()
 
   const [verdict, setVerdict] = useState(review?.verdict ?? 'pass')
   const [score, setScore] = useState(review?.score ?? '')
   const [feedback, setFeedback] = useState(review?.feedback ?? '')
+  const [stepNotes, setStepNotes] = useState(review?.step_feedback ?? {})
+  const [progress, setProgress] = useState(null)
   const [busy, setBusy] = useState(false)
+
+  // The lesson this project was started from, if any — its steps are what the
+  // child was asked to do, so they are what a teacher marks against.
+  const lesson = getLesson(project.kind, project.lesson_id)
+  const steps = lesson ? (pick(lesson.steps) || []) : []
+
+  // Which of those steps the child ticked off.
+  useEffect(() => {
+    let active = true
+    if (!project.lesson_id || !project.owner_id) return undefined
+
+    getProgressFor(project.owner_id, project.kind, project.lesson_id)
+      .then((row) => { if (active) setProgress(row) })
+      .catch(() => {})
+
+    return () => { active = false }
+  }, [project.owner_id, project.kind, project.lesson_id])
+
+  const ticked = new Set(Array.isArray(progress?.steps_done) ? progress.steps_done : [])
+  const setNote = (index, value) =>
+    setStepNotes((current) => ({ ...current, [String(index)]: value }))
 
   const submit = async (event) => {
     event.preventDefault()
@@ -57,7 +94,8 @@ export default function ReviewPanel({ project, owner, review, onReviewed }) {
         reviewerId: user.id,
         verdict,
         score,
-        feedback
+        feedback,
+        stepFeedback: stepNotes
       })
       toast.success(t('review.saved'))
       onReviewed?.(saved)
@@ -85,7 +123,7 @@ export default function ReviewPanel({ project, owner, review, onReviewed }) {
   const label = { color: '#9aa3b2', fontSize: '0.8rem', fontWeight: 700, display: 'block', marginBottom: 6 }
 
   return (
-    <aside className="lesson-panel">
+    <aside className="lesson-panel review-panel">
       <div className="head">
         <div className="row-between">
           <strong>{t('review.title')}</strong>
@@ -104,6 +142,46 @@ export default function ReviewPanel({ project, owner, review, onReviewed }) {
 
       <form className="body" onSubmit={submit}>
         <p className="tiny muted" style={{ marginBottom: 14 }}>{t('review.lookFirst')}</p>
+
+        {/* What the child was asked to do, and what they ticked. A note can
+            be attached to any single step. */}
+        {steps.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <span style={label}>
+              {t('review.theSteps')}{' '}
+              <span style={{ fontWeight: 500 }}>
+                ({ticked.size}/{steps.length})
+              </span>
+            </span>
+
+            {steps.map((step, index) => {
+              const isDone = ticked.has(index)
+              return (
+                <div key={index} className={`review-step ${isDone ? 'done' : ''}`}>
+                  <div className="row" style={{ gap: 8, alignItems: 'flex-start' }}>
+                    <span className="review-step-mark">{isDone ? '✓' : '·'}</span>
+                    <span
+                      className="small"
+                      style={{ flex: 1, opacity: isDone ? 1 : 0.65 }}
+                      dangerouslySetInnerHTML={{ __html: renderStep(step) }}
+                    />
+                  </div>
+
+                  <input
+                    className="review-step-note"
+                    value={stepNotes[String(index)] ?? ''}
+                    onChange={(e) => setNote(index, e.target.value)}
+                    placeholder={t('review.stepNotePlaceholder')}
+                  />
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {!lesson && (
+          <p className="tiny muted" style={{ marginBottom: 18 }}>{t('review.noLesson')}</p>
+        )}
 
         <span style={label}>{t('review.verdict')}</span>
         <div className="row" style={{ gap: 8 }}>
@@ -141,7 +219,7 @@ export default function ReviewPanel({ project, owner, review, onReviewed }) {
         </div>
 
         <div style={{ marginTop: 16 }}>
-          <span style={label}>{t('review.feedback')}</span>
+          <span style={label}>{t('review.generalFeedback')}</span>
           <textarea
             rows={6}
             value={feedback}

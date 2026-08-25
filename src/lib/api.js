@@ -113,7 +113,7 @@ export async function listMyProgress() {
  * Progress rows are unique per (user, track, lesson), so an upsert on that key
  * keeps a single row per lesson no matter how often it is saved.
  */
-export async function saveProgress({ userId, track, lessonId, completedSteps, totalSteps }) {
+export async function saveProgress({ userId, track, lessonId, completedSteps, totalSteps, stepsDone = [] }) {
   const status = totalSteps > 0 && completedSteps >= totalSteps ? 'completed' : 'in_progress'
 
   return unwrap(
@@ -126,6 +126,9 @@ export async function saveProgress({ userId, track, lessonId, completedSteps, to
           lesson_id: lessonId,
           completed_steps: completedSteps,
           total_steps: totalSteps,
+          // Stored so a teacher can see which steps are done, and so the ticks
+          // survive a child moving to another computer.
+          steps_done: [...stepsDone].sort((a, b) => a - b),
           status,
           updated_at: new Date().toISOString()
         },
@@ -253,6 +256,20 @@ export async function listActivityFor(studentIds, limit = 60) {
   )
 }
 
+/** One student's progress on one lesson — used when marking their work. */
+export async function getProgressFor(userId, track, lessonId) {
+  if (!userId || !lessonId) return null
+  return unwrap(
+    await supabase
+      .from('lesson_progress')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('track', track)
+      .eq('lesson_id', lessonId)
+      .maybeSingle()
+  )
+}
+
 /* ----------------------------------------------------------------- reviews */
 
 /** Reviews of a set of projects, keyed by project id for easy lookup. */
@@ -280,7 +297,7 @@ export async function listMyReviews() {
  * Mark a project. One review per project, so this upserts on project_id —
  * re-marking corrected work replaces the old verdict instead of stacking up.
  */
-export async function saveReview({ projectId, reviewerId, verdict, score, feedback }) {
+export async function saveReview({ projectId, reviewerId, verdict, score, feedback, stepFeedback = {} }) {
   return unwrap(
     await supabase
       .from('reviews')
@@ -291,6 +308,10 @@ export async function saveReview({ projectId, reviewerId, verdict, score, feedba
           verdict,
           score: score === '' || score == null ? null : Number(score),
           feedback: feedback?.trim() || null,
+          // Empty notes are dropped so the column stays readable.
+          step_feedback: Object.fromEntries(
+            Object.entries(stepFeedback).filter(([, note]) => note && note.trim())
+          ),
           updated_at: new Date().toISOString()
         },
         { onConflict: 'project_id' }

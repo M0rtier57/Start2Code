@@ -327,6 +327,59 @@ input:focus, select:focus, textarea:focus {
 .console-out .sys { color: #74c0fc; }
 .console-empty { color: #5c6370; font-style: italic; }
 
+/* --- Marking: the lesson steps inside the review panel ------------------- */
+.lesson-panel.review-panel { width: 420px; }
+
+.review-step {
+  padding: 9px 10px;
+  border-radius: 9px;
+  background: var(--dark-2);
+  margin-bottom: 8px;
+  border-left: 3px solid #4a5262;
+}
+.review-step.done { border-left-color: var(--ok); }
+
+.review-step-mark {
+  width: 18px; text-align: center; flex-shrink: 0;
+  font-weight: 700; color: #6b7280;
+}
+.review-step.done .review-step-mark { color: #8ce99a; }
+
+.review-step code {
+  background: #2b3140; padding: 1px 5px; border-radius: 5px;
+  font-family: var(--mono); font-size: 0.86em; color: #ffd8a8;
+}
+
+.review-step-note {
+  margin-top: 7px;
+  padding: 6px 9px;
+  font-size: 0.82rem;
+  background: var(--dark-1);
+  border-color: var(--dark-3);
+  color: var(--dark-ink);
+}
+.review-step-note::placeholder { color: #5c6370; }
+
+/* The teacher's note, shown to the child under the step it belongs to. */
+.step-note {
+  margin: -2px 0 8px 30px;
+  padding: 8px 11px;
+  border-left: 3px solid #e6a817;
+  background: #2a2418;
+  border-radius: 0 8px 8px 0;
+  font-size: 0.83rem;
+  line-height: 1.5;
+  color: #f1e3c6;
+}
+.step-note strong {
+  display: block;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #e6a817;
+  margin-bottom: 3px;
+}
+
 /* --- Lesson panel -------------------------------------------------------- */
 .lesson-panel {
   width: 330px; flex-shrink: 0; background: var(--dark-1);

@@ -83,9 +83,9 @@ export default function ScratchWorkspace() {
         setProject(row)
         setTitle(row.title)
 
+        getReview(row.id).then(setReview).catch(() => {})
         if (user && row.owner_id !== user.id) {
           getProfile(row.owner_id).then(setOwner).catch(() => {})
-          getReview(row.id).then(setReview).catch(() => {})
         }
       })
       .catch((error) => { toast.error(error.message); navigate('/') })
@@ -320,6 +320,7 @@ export default function ScratchWorkspace() {
           <LessonPanel
             track="scratch"
             lesson={lesson}
+            review={review}
             onClose={() => setShowLesson(false)}
             onPickLesson={(next) => (next?.id ? navigate(`/scratch/${projectId}?lesson=${next.id}`) : setPickerOpen(true))}
           />

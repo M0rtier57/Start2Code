@@ -82,9 +82,11 @@ export default function PythonWorkspace() {
         setTitle(row.title)
 
         // Whose work is this, and has it been marked already?
+        // The review is fetched either way: a teacher needs it to mark, and
+        // a child needs it to read the notes left on their steps.
+        getReview(row.id).then(setReview).catch(() => {})
         if (user && row.owner_id !== user.id) {
           getProfile(row.owner_id).then(setOwner).catch(() => {})
-          getReview(row.id).then(setReview).catch(() => {})
         }
       })
       .catch((error) => {
@@ -365,6 +367,7 @@ export default function PythonWorkspace() {
           <LessonPanel
             track="python"
             lesson={lesson}
+            review={review}
             onClose={() => setShowLesson(false)}
             onPickLesson={(next) => (next?.id ? navigate(`/python/${projectId}?lesson=${next.id}`) : setPickerOpen(true))}
           />

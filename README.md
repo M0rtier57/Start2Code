@@ -163,6 +163,26 @@ on the tab. **Openen en beoordelen** opens the child's real project in the real
 editor — a teacher has to be able to run the game and read the blocks before
 judging it — with the marking panel in place of the lesson steps.
 
+The marking panel shows:
+
+- **the lesson steps**, with a green edge on the ones the child ticked and a
+  count (`2/4`) — so a teacher can see what was attempted, not just the result;
+- **a note box under every step**, for feedback about that specific instruction;
+- **a general comment**, a pass/fail verdict and an optional score.
+
+The child sees each note under the step it belongs to, in their own lesson panel,
+where they are already looking — not collected at the bottom of a card.
+
+Two things this needed:
+
+- Ticked steps used to live only in `localStorage`, so a teacher could see
+  "3 of 5 done" but never *which* three, and the ticks vanished if the child
+  moved to another computer. They are now saved to `lesson_progress.steps_done`,
+  with `localStorage` kept as an instant cache so the panel never renders empty.
+- Notes are stored in `reviews.step_feedback`, keyed by step number. Reordering
+  the steps of a lesson after it has been marked would therefore shift existing
+  notes — worth knowing before rewriting a lesson mid-term.
+
 While marking, the editor is read-only: autosave, the save button and the
 "unsaved changes" warning are all switched off, and the title cannot be edited.
 That is belt and braces — `projects_update` is owner-only, so the database would
