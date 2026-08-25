@@ -81,6 +81,22 @@ speaks `postMessage` with the React app:
 Saved projects are real `.sb3` files in Supabase Storage, so a download opens in
 scratch.mit.edu and a file from home opens here.
 
+The bundle also loads a **web worker at runtime**:
+`public/chunks/fetch-worker.<hash>.js`, which scratch-storage uses to download
+sprite and backdrop assets. It is easy to miss when copying build output, and the
+failure is silent and confusing — the asset libraries open and look perfectly
+normal, but choosing a sprite or backdrop does nothing at all, because the load
+promise never settles. The only clue is an occasional
+`Uncaught SyntaxError: Unexpected token '<'` (the missing worker being answered
+with index.html).
+
+If you rebuild the bundle, copy that file too, and check the hash still matches
+the one referenced inside `scratch-gui.js`:
+
+```bash
+grep -o 'chunks/fetch-worker[^"]*' public/scratch-gui.js
+```
+
 **If you ever rebuild the bundle**, keep it as a UMD build with `react` and
 `react-dom` as externals — `scratch.html` aliases `window.react` / `window['react-dom']`
 before loading it, because that is the name the bundle looks for.

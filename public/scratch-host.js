@@ -54,6 +54,7 @@
   // ---------------------------------------------------------------------------
   function onVmInit(instance) {
     vm = instance;
+    window.__s2cVm = vm;   // debug handle, dev only
 
     // PROJECT_CHANGED fires on every meaningful edit; it is what the official
     // editor uses to decide whether there is unsaved work.
