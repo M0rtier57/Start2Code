@@ -35,8 +35,6 @@ export const nl = {
   'login.emailPlaceholder': 'jij@school.be',
   'login.passwordPlaceholder': 'Minstens 6 tekens',
   'login.iAm': 'Ik ben…',
-  'login.student': 'Leerling',
-  'login.teacher': 'Leerkracht',
   'login.submitLogin': 'Inloggen',
   'login.submitSignup': 'Maak mijn account',
   'login.joinHint': 'Leerlingen sluiten zich na het inloggen aan bij hun klas met een code.',
@@ -51,9 +49,18 @@ export const nl = {
   'nav.classes': 'Klassen',
   'nav.admin': 'Beheer',
   'nav.logout': 'Uitloggen',
+  /* Rollen — kleine letter, want ze staan meestal midden in een zin.
+     De lijst zelf staat in src/lib/roles.js. */
   'role.student': 'leerling',
+  'role.student.plural': 'leerlingen',
+  'role.parent': 'ouder',
+  'role.parent.plural': 'ouders',
+  'role.tester': 'tester',
+  'role.tester.plural': 'testers',
   'role.teacher': 'leerkracht',
+  'role.teacher.plural': 'leerkrachten',
   'role.admin': 'beheerder',
+  'role.admin.plural': 'beheerders',
 
   /* --- dashboard --------------------------------------------------------- */
   'dash.hi': 'Hallo {name}! 👋',

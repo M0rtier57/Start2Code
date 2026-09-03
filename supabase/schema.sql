@@ -12,7 +12,11 @@ create table if not exists public.profiles (
   id          uuid primary key references auth.users (id) on delete cascade,
   email       text,
   full_name   text,
-  role        text not null default 'student' check (role in ('student', 'teacher', 'admin')),
+  -- The same list lives in src/lib/roles.js; supabase/roles.sql widens it on an
+  -- installation that predates the parent and tester roles.
+  role        text not null default 'student'
+              constraint profiles_role_check
+              check (role in ('student', 'parent', 'tester', 'teacher', 'admin')),
   avatar      text,
   created_at  timestamptz not null default now()
 );
@@ -30,8 +34,13 @@ begin
     new.id,
     new.email,
     coalesce(new.raw_user_meta_data ->> 'full_name', split_part(new.email, '@', 1)),
-    -- Only 'student' or 'teacher' may be self-selected at sign-up; admin is granted manually.
-    case when new.raw_user_meta_data ->> 'role' = 'teacher' then 'teacher' else 'student' end
+    -- Only 'student', 'parent' or 'teacher' may be self-selected at sign-up.
+    -- Anything that sees more than your own work is granted by an admin.
+    case
+      when new.raw_user_meta_data ->> 'role' in ('teacher', 'parent')
+        then new.raw_user_meta_data ->> 'role'
+      else 'student'
+    end
   )
   on conflict (id) do nothing;
   return new;

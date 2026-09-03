@@ -1,11 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { supabase } from './supabaseClient'
+import { DEFAULT_ROLE, canAdminister, canTeach, isKnownRole } from './roles'
 
 const AuthContext = createContext(null)
 
 /**
  * Holds the Supabase session plus the matching row from `profiles`, which is
- * where a user's role (student / teacher / admin) and display name live.
+ * where a user's role (see `roles.js`) and display name live.
  */
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
@@ -49,18 +50,22 @@ export function AuthProvider({ children }) {
     return () => { active = false; subscription.unsubscribe() }
   }, [loadProfile])
 
+  // A role the app no longer knows (renamed, or written straight into the
+  // database) must not lock anyone out, so it reads as the default.
+  const role = isKnownRole(profile?.role) ? profile.role : DEFAULT_ROLE
+
   const value = useMemo(() => ({
     session,
     user: session?.user ?? null,
     profile,
     loading,
-    role: profile?.role ?? 'student',
-    isTeacher: profile?.role === 'teacher' || profile?.role === 'admin',
-    isAdmin: profile?.role === 'admin',
+    role,
+    isTeacher: canTeach(role),
+    isAdmin: canAdminister(role),
     displayName: profile?.full_name || session?.user?.email?.split('@')[0] || 'there',
     refreshProfile: () => loadProfile(session?.user?.id),
     signOut: () => supabase.auth.signOut()
-  }), [session, profile, loading, loadProfile])
+  }), [session, profile, loading, role, loadProfile])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

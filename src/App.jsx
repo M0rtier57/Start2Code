@@ -42,7 +42,7 @@ export default function App() {
 }
 
 function Shell() {
-  const { displayName, profile, isTeacher, isAdmin, signOut } = useAuth()
+  const { displayName, role, isTeacher, isAdmin, signOut } = useAuth()
   const { t } = useI18n()
   const navigate = useNavigate()
 
@@ -80,7 +80,7 @@ function Shell() {
             <Avatar name={displayName} />
             <div className="tiny" style={{ lineHeight: 1.3 }}>
               <div style={{ fontWeight: 650 }}>{displayName}</div>
-              <div className="muted">{t(`role.${profile?.role ?? 'student'}`)}</div>
+              <div className="muted">{t(`role.${role}`)}</div>
             </div>
             <LanguagePicker compact />
             <button className="btn btn-ghost btn-sm" onClick={signOut}>{t('nav.logout')}</button>

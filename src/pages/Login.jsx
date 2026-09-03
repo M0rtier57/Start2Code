@@ -3,6 +3,7 @@ import { supabase, isConfigured } from '../lib/supabaseClient'
 import Logo from '../components/Logo'
 import LanguagePicker from '../components/LanguagePicker'
 import { useToast } from '../components/ui'
+import { DEFAULT_ROLE, SIGNUP_ROLES, roleLabel } from '../lib/roles'
 import { useI18n } from '../i18n'
 
 export default function Login() {
@@ -12,7 +13,7 @@ export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
-  const [role, setRole] = useState('student')
+  const [role, setRole] = useState(DEFAULT_ROLE)
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState('')
 
@@ -101,8 +102,11 @@ export default function Login() {
               <label className="field">
                 {t('login.iAm')}
                 <select value={role} onChange={(e) => setRole(e.target.value)}>
-                  <option value="student">{t('login.student')}</option>
-                  <option value="teacher">{t('login.teacher')}</option>
+                  {SIGNUP_ROLES.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {roleLabel(t, option.id, { capital: true })}
+                    </option>
+                  ))}
                 </select>
               </label>
             )}
