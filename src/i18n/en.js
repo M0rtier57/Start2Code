@@ -30,6 +30,8 @@ export const en = {
   'login.emailPlaceholder': 'you@school.be',
   'login.passwordPlaceholder': 'At least 6 characters',
   'login.iAm': 'I am a…',
+  'login.student': 'Student',
+  'login.teacher': 'Teacher',
   'login.submitLogin': 'Log in',
   'login.submitSignup': 'Create my account',
   'login.joinHint': 'Students join their class with a code after logging in.',
@@ -44,18 +46,9 @@ export const en = {
   'nav.classes': 'Classes',
   'nav.admin': 'Admin',
   'nav.logout': 'Log out',
-  /* Roles — lowercase, they mostly appear mid-sentence.
-     The list itself lives in src/lib/roles.js. */
   'role.student': 'student',
-  'role.student.plural': 'students',
-  'role.parent': 'parent',
-  'role.parent.plural': 'parents',
-  'role.tester': 'tester',
-  'role.tester.plural': 'testers',
   'role.teacher': 'teacher',
-  'role.teacher.plural': 'teachers',
   'role.admin': 'admin',
-  'role.admin.plural': 'admins',
 
   /* --- dashboard --------------------------------------------------------- */
   'dash.hi': 'Hi {name}! 👋',

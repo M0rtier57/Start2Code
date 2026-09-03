@@ -5,8 +5,6 @@ import { Avatar, LoadingScreen, timeAgo, useToast } from '../components/ui'
 import { useAuth } from '../lib/AuthContext'
 import { listAllProfiles, listMyClasses, setUserRole } from '../lib/api'
 import { useCurriculum } from '../lib/CurriculumContext'
-import { ROLES, roleLabel } from '../lib/roles'
-import { useI18n } from '../i18n'
 
 /**
  * Admin-only view: who is on the platform and what they are allowed to do.
@@ -16,7 +14,6 @@ import { useI18n } from '../i18n'
 export default function AdminPanel() {
   const { user } = useAuth()
   const toast = useToast()
-  const { t } = useI18n()
   const { tracks } = useCurriculum()
 
   const [people, setPeople] = useState([])
@@ -46,7 +43,7 @@ export default function AdminPanel() {
     setPeople((current) => current.map((p) => (p.id === person.id ? { ...p, role } : p)))
     try {
       await setUserRole(person.id, role)
-      toast.success(`${person.full_name || person.email} is now a ${roleLabel(t, role)}`)
+      toast.success(`${person.full_name || person.email} is now a ${role}`)
     } catch (error) {
       setPeople(previous)
       toast.error(error.message)
@@ -75,17 +72,10 @@ export default function AdminPanel() {
       <p className="muted mt-2">Manage who can teach and who can administer Start2Code.</p>
 
       <div className="grid mt-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))' }}>
-        {ROLES.map((role) => (
-          <StatCard
-            key={role.id}
-            label={roleLabel(t, role.id, { plural: true, capital: true })}
-            value={counts[role.id] ?? 0}
-          />
-        ))}
-        <StatCard
-          label="Lessons available"
-          value={Object.values(tracks).reduce((sum, track) => sum + track.lessons.length, 0)}
-        />
+        <StatCard label="Students" value={counts.student ?? 0} />
+        <StatCard label="Teachers" value={counts.teacher ?? 0} />
+        <StatCard label="Admins" value={counts.admin ?? 0} />
+        <StatCard label="Lessons available" value={Object.values(tracks).reduce((sum, t) => sum + t.lessons.length, 0)} />
       </div>
 
       <div className="tabs mt-6">
@@ -110,11 +100,9 @@ export default function AdminPanel() {
         />
         <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} style={{ maxWidth: 180 }}>
           <option value="all">All roles</option>
-          {ROLES.map((role) => (
-            <option key={role.id} value={role.id}>
-              {roleLabel(t, role.id, { plural: true, capital: true })}
-            </option>
-          ))}
+          <option value="student">Students</option>
+          <option value="teacher">Teachers</option>
+          <option value="admin">Admins</option>
         </select>
       </div>
 
@@ -146,11 +134,9 @@ export default function AdminPanel() {
                     title={person.id === user.id ? 'You cannot change your own role' : undefined}
                     onChange={(e) => changeRole(person, e.target.value)}
                   >
-                    {ROLES.map((role) => (
-                      <option key={role.id} value={role.id}>
-                        {roleLabel(t, role.id, { capital: true })}
-                      </option>
-                    ))}
+                    <option value="student">Student</option>
+                    <option value="teacher">Teacher</option>
+                    <option value="admin">Admin</option>
                   </select>
                 </td>
               </tr>

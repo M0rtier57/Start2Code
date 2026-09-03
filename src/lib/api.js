@@ -4,7 +4,6 @@
  * helpers just shape the queries.
  */
 import { supabase } from './supabaseClient'
-import { isKnownRole } from './roles'
 
 const BUCKET = 'projects'
 
@@ -452,8 +451,5 @@ export async function listAllProfiles() {
 }
 
 export async function setUserRole(userId, role) {
-  // The database has the same list in a check constraint; this only turns a
-  // typo into a clear message instead of a Postgres error.
-  if (!isKnownRole(role)) throw new Error(`Unknown role: ${role}`)
   return unwrap(await supabase.from('profiles').update({ role }).eq('id', userId).select().single())
 }

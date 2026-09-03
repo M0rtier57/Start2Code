@@ -33,10 +33,6 @@ It is safe to run more than once. It creates the tables, the row level security
 policies, the `projects` storage bucket, and a trigger that gives every new user a
 profile automatically.
 
-A database created before a feature existed needs that feature's file too — they
-are all in `supabase/` and all safe to re-run. `roles.sql` is the one that adds
-the **parent** and **tester** roles to an older database.
-
 ### 4. Make yourself an admin
 
 Sign up through the app, then run this once in the SQL editor:
@@ -64,7 +60,6 @@ public/
   scratch.html + scratch-host.js    the Scratch editor and its bridge
   runner.html   + py-runtime.py     the Python runner and its harness
 supabase/schema.sql                 tables, policies, triggers
-supabase/*.sql                      one file per feature added later
 ```
 
 ### Scratch
@@ -213,35 +208,15 @@ by the policies in `supabase/reviews.sql`, not by hiding buttons.
 
 ## Roles
 
-| Role | Can do | Granted by |
-| --- | --- | --- |
-| **student** | own projects and progress, join a class with a code | chosen at sign-up |
-| **parent** | a grown-up account; no access to anyone else's work yet | chosen at sign-up |
-| **tester** | the same as a student, but recognisable as a trial account | an admin |
-| **teacher** | everything a student can, plus create classes and see their own students' work | chosen at sign-up |
-| **admin** | everything, plus change anyone's role | an admin |
-
-An admin changes anyone's role from **Admin → People**: pick the person, pick the
-role. Only roles that see nothing but your own work can be chosen at sign-up —
-teacher, tester and admin rights are handed out, never claimed.
+| Role | Can do |
+| --- | --- |
+| **student** | own projects and progress, join a class with a code |
+| **teacher** | everything above, plus create classes and see their own students' work |
+| **admin** | everything, plus change anyone's role |
 
 Access is enforced in the database, not in the UI. A student cannot read another
 child's project even by calling the API directly, and the role column is protected by
 its own trigger so nobody can promote themselves.
-
-### Adding another role
-
-Three places, and nothing else:
-
-1. `src/lib/roles.js` — one entry, saying whether it teaches, administers, and
-   may be picked at sign-up. The admin panel, the sign-up form and every
-   permission check read this list.
-2. `src/i18n/nl.js` and `src/i18n/en.js` — `role.<id>` and `role.<id>.plural`.
-3. `supabase/roles.sql` — add it to the check constraint and run the file in the
-   SQL editor, otherwise the database rejects the new value.
-
-A **parent** currently sees the same dashboard as a child and nothing more;
-linking a parent to their own child's progress is still to be built.
 
 ---
 
