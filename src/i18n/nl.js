@@ -55,6 +55,17 @@ export const nl = {
   'role.teacher': 'leerkracht',
   'role.admin': 'beheerder',
 
+  /* --- afbeelding exporteren --------------------------------------------- */
+  'img.copyAction': 'Kopieer code als afbeelding',
+  'img.saveAction': 'Bewaar code als afbeelding',
+  'img.blockCopy': 'Kopieer blokken als afbeelding',
+  'img.blockSave': 'Bewaar blokken als afbeelding',
+  'img.copied': 'Gekopieerd! Plak de afbeelding waar je wil.',
+  'img.saved': 'De afbeelding is gedownload.',
+  'img.copyFellBack': 'Deze browser kopieert geen afbeeldingen — hij is gedownload.',
+  'img.empty': 'Er is niets om een afbeelding van te maken.',
+  'img.failed': 'De afbeelding kon niet gemaakt worden.',
+
   /* --- dashboard --------------------------------------------------------- */
   'dash.hi': 'Hallo {name}! 👋',
   'dash.subtitle': 'Ga verder waar je gebleven was, of begin iets nieuws.',

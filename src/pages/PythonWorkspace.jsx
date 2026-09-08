@@ -12,6 +12,8 @@ import {
 } from '../lib/api'
 import { STATE_KEY, STATE_STYLE, submissionState } from '../lib/submission'
 import { downloadText, toFilename } from '../lib/download'
+import { renderCodeImage } from '../lib/codeImage'
+import { copyImageToClipboard, saveImage } from '../lib/imageExport'
 import { useCurriculum } from '../lib/CurriculumContext'
 import { useI18n } from '../i18n'
 
@@ -38,6 +40,7 @@ export default function PythonWorkspace() {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [frameKey, setFrameKey] = useState(0)
   const [stageFull, setStageFull] = useState(false)
+  const [editorReady, setEditorReady] = useState(false)
 
   // Only used when a teacher opens someone else's work to mark it.
   const [owner, setOwner] = useState(null)
@@ -46,6 +49,8 @@ export default function PythonWorkspace() {
 
   const frame = useRef(null)
   const stagePane = useRef(null)
+  const editor = useRef(null)
+  const monaco = useRef(null)
   const pendingRun = useRef(null)     // code waiting for a fresh frame to boot
   const savedCode = useRef('')
 
@@ -223,6 +228,61 @@ export default function PythonWorkspace() {
    * The iframe element is never moved or re-rendered, only restyled, so a game
    * that is already running keeps running.
    */
+  /* -------------------------------------------------------- code as a picture
+   * Right-click in the editor: the selection, or the whole file when nothing
+   * is selected, drawn as a PNG. Copying is the point — it pastes straight
+   * into a document — but not every browser allows it, so a copy that is
+   * refused turns into a download instead of an error.
+   */
+  const exportImage = useCallback(async (mode) => {
+    const instance = editor.current
+    if (!instance || !monaco.current) return
+
+    const model = instance.getModel()
+    const selection = instance.getSelection()
+    const partial = Boolean(selection && !selection.isEmpty())
+    const text = partial ? model.getValueInRange(selection) : model.getValue()
+
+    if (!text.trim()) return toast.error(t('img.empty'))
+
+    try {
+      const blob = await renderCodeImage(monaco.current, {
+        code: text,
+        language: 'python',
+        title: toFilename(title, 'py'),
+        firstLine: partial ? selection.startLineNumber : 1
+      })
+
+      if (mode === 'copy' && await copyImageToClipboard(blob)) {
+        return toast.success(t('img.copied'))
+      }
+
+      saveImage(blob, toFilename(title, 'png'))
+      toast.success(mode === 'copy' ? t('img.copyFellBack') : t('img.saved'))
+    } catch (error) {
+      toast.error(error.message)
+    }
+  }, [t, title, toast])
+
+  // Registered from an effect, not on mount, so the labels follow the language
+  // picker: each run disposes the previous pair and adds them again.
+  useEffect(() => {
+    if (!editorReady || !editor.current) return
+
+    const actions = [
+      { id: 's2c.copy-image', label: t('img.copyAction'), order: 90, mode: 'copy' },
+      { id: 's2c.save-image', label: t('img.saveAction'), order: 91, mode: 'save' }
+    ].map(({ id, label, order, mode }) => editor.current.addAction({
+      id,
+      label,
+      contextMenuGroupId: '9_cutcopypaste',
+      contextMenuOrder: order,
+      run: () => exportImage(mode)
+    }))
+
+    return () => actions.forEach((action) => action.dispose())
+  }, [editorReady, exportImage, t])
+
   const toggleStageFull = useCallback(() => {
     const next = !stageFull
     setStageFull(next)
@@ -379,6 +439,11 @@ export default function PythonWorkspace() {
             <Editor
               height="100%"
               defaultLanguage="python"
+              onMount={(instance, api) => {
+                editor.current = instance
+                monaco.current = api
+                setEditorReady(true)
+              }}
               theme="vs-dark"
               value={code}
               onChange={(value) => setCode(value ?? '')}

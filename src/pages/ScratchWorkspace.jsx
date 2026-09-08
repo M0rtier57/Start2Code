@@ -114,11 +114,38 @@ export default function ScratchWorkspace() {
       if (data.type === 'error' && !data.requestId) {
         toast.error(data.message)
       }
+
+      // The frame does its own image exporting, but the message about it
+      // belongs in the app's toasts rather than an alert inside the editor.
+      if (data.type === 'toast') {
+        (data.level === 'error' ? toast.error : toast.success)(data.message)
+      }
     }
 
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
   }, [project, toast])
+
+  /* ------------------------------------------------ labels for the frame's own
+   * right-click menu. The frame has no access to the dictionaries, so the
+   * wording is pushed to it and refreshed whenever the language changes.
+   */
+  useEffect(() => {
+    if (!editorReady) return
+    frame.current?.contentWindow?.postMessage({
+      source: 's2c',
+      type: 'labels',
+      labels: {
+        copy: t('img.blockCopy'),
+        save: t('img.blockSave'),
+        copied: t('img.copied'),
+        saved: t('img.saved'),
+        fellBack: t('img.copyFellBack'),
+        failed: t('img.failed'),
+        filename: toFilename(title, 'png')
+      }
+    }, '*')
+  }, [editorReady, t, title])
 
   /* --------------------------------------------------------- initial content
    * Runs once the editor is up *and* the project and curriculum have loaded.
