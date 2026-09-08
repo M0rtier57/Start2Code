@@ -49,12 +49,12 @@ export default function Login() {
 
   return (
     <div style={{ minHeight: '100%', display: 'grid', placeItems: 'center', padding: 24 }}>
-      <div style={{ width: 'min(430px, 100%)' }}>
+      <div style={{ width: 'min(460px, 100%)' }}>
         <div className="center" style={{ marginBottom: 22 }}>
-          <div className="logo" style={{ justifyContent: 'center', fontSize: '1.4rem' }}>
-            <Logo size={44} /> Start2Code
+          <div className="logo" style={{ justifyContent: 'center', fontSize: '1.9rem' }}>
+            <Logo size={56} /> Start2Code
           </div>
-          <p className="muted mt-2">{t('app.tagline')}</p>
+          <p className="muted mt-2" style={{ fontSize: '1.05rem' }}>{t('app.tagline')}</p>
         </div>
 
         <div className="card">

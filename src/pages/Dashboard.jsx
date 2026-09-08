@@ -126,10 +126,10 @@ export default function Dashboard() {
 
   return (
     <div className="page">
-      <div className="row-between wrap">
+      <div className="hero row-between wrap">
         <div>
           <h1>{t('dash.hi', { name: displayName })}</h1>
-          <p className="muted mt-2">{t('dash.subtitle')}</p>
+          <p className="mt-2">{t('dash.subtitle')}</p>
         </div>
         <div className="row">
           {classes.length === 0 && (
@@ -171,8 +171,7 @@ export default function Dashboard() {
               return (
                 <button
                   key={lesson.id}
-                  className="tile"
-                  style={{ borderColor: complete ? 'var(--ok)' : 'var(--brand)', borderWidth: 2 }}
+                  className={`tile ${complete ? 'tile-accent' : 'tile-koraal'}`}
                   onClick={() => start(lesson.track, lesson)}
                 >
                   <div className="row-between">
@@ -199,21 +198,21 @@ export default function Dashboard() {
       {/* Start something new — the fastest possible route into an editor. */}
       <h2 className="mt-6">{t('dash.startNew')}</h2>
       <div className="grid grid-auto mt-4">
-        <button className="tile" onClick={() => startBlank('scratch')}>
-          <span style={{ fontSize: '1.9rem' }}>🧩</span>
-          <h3 className="mt-2">{t('dash.blankScratch')}</h3>
+        <button className="tile tile-zon" onClick={() => startBlank('scratch')}>
+          <span className="tile-emoji">🧩</span>
+          <h3>{t('dash.blankScratch')}</h3>
           <p className="small muted mt-2">{t('dash.blankScratchSub')}</p>
         </button>
 
-        <button className="tile" onClick={() => startBlank('python', 'console')}>
-          <span style={{ fontSize: '1.9rem' }}>🐍</span>
-          <h3 className="mt-2">{t('dash.blankPython')}</h3>
+        <button className="tile tile-lucht" onClick={() => startBlank('python', 'console')}>
+          <span className="tile-emoji">🐍</span>
+          <h3>{t('dash.blankPython')}</h3>
           <p className="small muted mt-2">{t('dash.blankPythonSub')}</p>
         </button>
 
-        <button className="tile" onClick={() => startBlank('python', 'game')}>
-          <span style={{ fontSize: '1.9rem' }}>🎮</span>
-          <h3 className="mt-2">{t('dash.blankGame')}</h3>
+        <button className="tile tile-koraal" onClick={() => startBlank('python', 'game')}>
+          <span className="tile-emoji">🎮</span>
+          <h3>{t('dash.blankGame')}</h3>
           <p className="small muted mt-2">{t('dash.blankGameSub')}</p>
         </button>
       </div>
@@ -259,7 +258,11 @@ export default function Dashboard() {
                   const row = progressByLesson.get(lesson.id)
                   const complete = row?.status === 'completed'
                   return (
-                    <button key={lesson.id} className="tile" onClick={() => start(track.id, lesson)}>
+                    <button
+                      key={lesson.id}
+                      className={`tile ${track.id === 'scratch' ? 'tile-zon' : 'tile-lucht'}`}
+                      onClick={() => start(track.id, lesson)}
+                    >
                       <div className="row-between">
                         <span className="badge">{t('dash.lessonNumber', { number: index + 1 })}</span>
                         {complete
