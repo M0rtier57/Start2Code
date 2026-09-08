@@ -205,9 +205,15 @@ export default function ScratchWorkspace() {
     toast.success(t('ws.projectLoaded'))
   }, [toast, t])
 
-  // Autosave every couple of minutes; children forget, and the bell does not.
+  /*
+   * Autosave every five minutes; children forget, and the bell does not.
+   *
+   * Each save uploads the whole .sb3 — sprites and sounds included — so a class
+   * of thirty moves real traffic. Five minutes keeps that in hand, and little
+   * is at risk: work is also saved on hand-in, and closing the tab warns first.
+   */
   useEffect(() => {
-    const timer = setInterval(() => { if (dirty.current && !reviewing) save() }, 120_000)
+    const timer = setInterval(() => { if (dirty.current && !reviewing) save() }, 300_000)
     return () => clearInterval(timer)
   }, [save, reviewing])
 
