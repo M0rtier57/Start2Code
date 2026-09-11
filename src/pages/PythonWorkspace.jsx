@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import Editor from '@monaco-editor/react'
 
 import Console from '../components/Console'
+import ContextMenu from '../components/ContextMenu'
 import LessonPanel from '../components/LessonPanel'
 import ReviewPanel from '../components/review'
 import { LoadingScreen, Modal, useToast } from '../components/ui'
@@ -13,6 +14,8 @@ import {
 import { STATE_KEY, STATE_STYLE, submissionState } from '../lib/submission'
 import { downloadText, toFilename } from '../lib/download'
 import { renderCodeImage } from '../lib/codeImage'
+import { renderConsoleImage } from '../lib/consoleImage'
+import { dataUrlToBlob } from '../lib/imageCanvas'
 import { copyImageToClipboard, saveImage } from '../lib/imageExport'
 import { useCurriculum } from '../lib/CurriculumContext'
 import { useI18n } from '../i18n'
@@ -41,6 +44,7 @@ export default function PythonWorkspace() {
   const [frameKey, setFrameKey] = useState(0)
   const [stageFull, setStageFull] = useState(false)
   const [editorReady, setEditorReady] = useState(false)
+  const [menu, setMenu] = useState(null)   // { x, y, target: 'console' | 'stage' }
 
   // Only used when a teacher opens someone else's work to mark it.
   const [owner, setOwner] = useState(null)
@@ -49,6 +53,7 @@ export default function PythonWorkspace() {
 
   const frame = useRef(null)
   const stagePane = useRef(null)
+  const snapshot = useRef(null)   // resolver for the stage picture being awaited
   const editor = useRef(null)
   const monaco = useRef(null)
   const pendingRun = useRef(null)     // code waiting for a fresh frame to boot
@@ -180,6 +185,17 @@ export default function PythonWorkspace() {
           break
         case 'needs-reload':
           break
+        case 'contextmenu': {
+          // The click happened inside the frame, so its coordinates are
+          // relative to the frame, not to the page.
+          const box = frame.current?.getBoundingClientRect()
+          if (box) setMenu({ x: box.left + data.x, y: box.top + data.y, target: 'stage' })
+          break
+        }
+        case 'snapshot':
+          snapshot.current?.(data)
+          snapshot.current = null
+          break
         default:
           break
       }
@@ -228,11 +244,23 @@ export default function PythonWorkspace() {
    * The iframe element is never moved or re-rendered, only restyled, so a game
    * that is already running keeps running.
    */
-  /* -------------------------------------------------------- code as a picture
-   * Right-click in the editor: the selection, or the whole file when nothing
-   * is selected, drawn as a PNG. Copying is the point — it pastes straight
-   * into a document — but not every browser allows it, so a copy that is
+  /* ------------------------------------------------------------ as a picture
+   * Three things can be exported — the code, the console and the stage — and
+   * they all end the same way. Copying is the point, since it pastes straight
+   * into a document, but not every browser allows it, so a copy that is
    * refused turns into a download instead of an error.
+   */
+  const deliver = useCallback(async (blob, mode, suffix) => {
+    if (mode === 'copy' && await copyImageToClipboard(blob)) {
+      return toast.success(t('img.copied'))
+    }
+
+    saveImage(blob, toFilename(`${title}${suffix}`, 'png'))
+    toast.success(mode === 'copy' ? t('img.copyFellBack') : t('img.saved'))
+  }, [t, title, toast])
+
+  /**
+   * The selection, or the whole file when nothing is selected.
    */
   const exportImage = useCallback(async (mode) => {
     const instance = editor.current
@@ -253,16 +281,58 @@ export default function PythonWorkspace() {
         firstLine: partial ? selection.startLineNumber : 1
       })
 
-      if (mode === 'copy' && await copyImageToClipboard(blob)) {
-        return toast.success(t('img.copied'))
-      }
-
-      saveImage(blob, toFilename(title, 'png'))
-      toast.success(mode === 'copy' ? t('img.copyFellBack') : t('img.saved'))
+      await deliver(blob, mode, '')
     } catch (error) {
       toast.error(error.message)
     }
-  }, [t, title, toast])
+  }, [deliver, t, title, toast])
+
+  /** Everything the console printed this run, not just the part still on screen. */
+  const exportConsole = useCallback(async (mode) => {
+    if (!output.length) return toast.error(t('img.emptyConsole'))
+
+    try {
+      const blob = await renderConsoleImage({
+        entries: output,
+        title: `${toFilename(title, 'py')} — ${t('console.title')}`
+      })
+      await deliver(blob, mode, '-console')
+    } catch (error) {
+      toast.error(error.message)
+    }
+  }, [deliver, output, t, title, toast])
+
+  /**
+   * The stage draws inside the runner frame, so the picture has to be asked
+   * for and waited on rather than taken from here.
+   */
+  const exportStage = useCallback(async (mode) => {
+    const target = frame.current?.contentWindow
+    if (!target) return toast.error(t('img.stageEmpty'))
+
+    try {
+      const reply = await new Promise((resolve, reject) => {
+        const timer = setTimeout(() => { snapshot.current = null; reject(new Error(t('img.failed'))) }, 5000)
+        snapshot.current = (data) => { clearTimeout(timer); resolve(data) }
+        target.postMessage({ source: 's2c', type: 'snapshot' }, '*')
+      })
+
+      if (reply.error === 'empty') return toast.error(t('img.stageEmpty'))
+      if (reply.error) return toast.error(t('img.stageTainted'))
+
+      await deliver(dataUrlToBlob(reply.dataUrl), mode, '-stage')
+    } catch (error) {
+      toast.error(error.message)
+    }
+  }, [deliver, t, toast])
+
+  const menuItems = useCallback((target) => {
+    const run = target === 'console' ? exportConsole : exportStage
+    return [
+      { label: t('img.copyAction2'), onSelect: () => run('copy') },
+      { label: t('img.saveAction2'), onSelect: () => run('save') }
+    ]
+  }, [exportConsole, exportStage, t])
 
   // Registered from an effect, not on mount, so the labels follow the language
   // picker: each run disposes the previous pair and adds them again.
@@ -467,6 +537,10 @@ export default function PythonWorkspace() {
             height={consoleHeight}
             onResizeStart={startResize}
             onClear={() => setOutput([])}
+            onContextMenu={(event) => {
+              event.preventDefault()
+              setMenu({ x: event.clientX, y: event.clientY, target: 'console' })
+            }}
           />
         </div>
 
@@ -509,6 +583,15 @@ export default function PythonWorkspace() {
           </div>
         </div>
       </div>
+
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          items={menuItems(menu.target)}
+          onClose={() => setMenu(null)}
+        />
+      )}
 
       {pickerOpen && (
         <Modal title={t('ws.chooseLesson')} onClose={() => setPickerOpen(false)} wide>

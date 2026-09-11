@@ -59,8 +59,10 @@
    *
    *  parent -> runner : { source: 's2c', type: 'run', code, mode: 'game'|'console' }
    *                     { source: 's2c', type: 'ping' }
+   *                     { source: 's2c', type: 'snapshot' }
    *  runner -> parent : { source: 's2c-python', type: 'boot' | 'started' | 'stdout'
-   *                                            | 'stderr' | 'finished' | 'input-request' }
+   *                                            | 'stderr' | 'finished' | 'input-request'
+   *                                            | 'contextmenu' | 'snapshot' }
    */
   (function () {
     'use strict';
@@ -188,10 +190,39 @@
     });
 
     // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
+    // The stage as a picture
+    //
+    // A right-click lands inside this frame, where the parent's menu cannot see
+    // it, so the position is forwarded and the parent opens its menu over us.
+    // -------------------------------------------------------------------------
+    document.addEventListener('contextmenu', function (event) {
+      event.preventDefault();
+      post({ type: 'contextmenu', x: event.clientX, y: event.clientY });
+    });
+
+    function snapshot() {
+      var canvas = document.getElementById('game-canvas');
+      var hidden = document.body.classList.contains('console-mode');
+
+      if (!canvas || hidden) {
+        return post({ type: 'snapshot', error: 'empty' });
+      }
+
+      try {
+        post({ type: 'snapshot', dataUrl: canvas.toDataURL('image/png') });
+      } catch (e) {
+        // Drawing an image from another site taints the canvas and the browser
+        // then refuses to hand the pixels back. Nothing to do but say so.
+        post({ type: 'snapshot', error: 'tainted' });
+      }
+    }
+
     window.addEventListener('message', function (event) {
       var data = event.data;
       if (!data || data.source !== 's2c') return;
       if (data.type === 'run') run(String(data.code || ''), data.mode);
+      if (data.type === 'snapshot') snapshot();
     });
 
     setIdle('<div class="spinner"></div>Ready — press Run.');

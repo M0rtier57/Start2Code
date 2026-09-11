@@ -491,6 +491,23 @@ input:focus, select:focus, textarea:focus {
   font-family: var(--mono); font-size: 0.86em; color: #ffd08a;
 }
 
+/* --- Right-click menu for the console and the stage ---------------------- */
+.context-menu {
+  position: fixed; z-index: 1000; min-width: 210px;
+  background: var(--dark-2); border: 1px solid var(--dark-3);
+  border-radius: 8px; padding: 5px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+.context-menu-item {
+  display: block; width: 100%; text-align: left;
+  background: none; border: 0; border-radius: 5px;
+  padding: 7px 10px; cursor: pointer;
+  font: inherit; font-size: 0.85rem; color: var(--dark-ink);
+}
+.context-menu-item:hover, .context-menu-item:focus-visible {
+  background: var(--brand); color: #fff; outline: none;
+}
+
 /* --- The mark, shown to the child inside the editor ---------------------- */
 .review-summary {
   padding: 14px 16px; border-radius: var(--radius-sm);
