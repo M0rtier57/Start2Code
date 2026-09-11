@@ -548,6 +548,12 @@ export default function PythonWorkspace() {
         <div
           ref={stagePane}
           className="ws-pane"
+          onContextMenu={(event) => {
+            // The iframe reports its own right-clicks; this covers the title bar
+            // and the margin around the stage.
+            event.preventDefault()
+            setMenu({ x: event.clientX, y: event.clientY, target: 'stage' })
+          }}
           style={stageFull
             ? { position: 'fixed', inset: 0, zIndex: 900, background: 'var(--dark-0)' }
             : { flex: 1, borderLeft: '1px solid var(--dark-3)' }}

@@ -27,7 +27,7 @@ export default function Console({ entries, running, onClear, height, onResizeSta
   }
 
   return (
-    <div className="console" style={{ height }}>
+    <div className="console" style={{ height }} onContextMenu={onContextMenu}>
       <div
         onMouseDown={onResizeStart}
         style={{ height: 6, cursor: 'row-resize', background: 'transparent', flexShrink: 0, marginTop: -6 }}
@@ -40,7 +40,7 @@ export default function Console({ entries, running, onClear, height, onResizeSta
         <button className="btn btn-quiet btn-sm" onClick={onClear}>{t('console.clear')}</button>
       </div>
 
-      <div className="console-out" ref={scroller} onScroll={onScroll} onContextMenu={onContextMenu}>
+      <div className="console-out" ref={scroller} onScroll={onScroll}>
         {entries.length === 0 && (
           <span className="console-empty">{t('console.empty')}</span>
         )}
