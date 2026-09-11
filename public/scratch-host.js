@@ -10,8 +10,9 @@
  *                   { source: 's2c', type: 'export-sb3', requestId }
  *                   { source: 's2c', type: 'new-project' }
  *                   { source: 's2c', type: 'green-flag' | 'stop-all' }
+ *                   { source: 's2c', type: 'labels', labels }
  * Host   -> parent: { source: 's2c-scratch', type: 'ready' | 'dirty' | 'loaded'
- *                                                 | 'sb3' | 'error' , ... }
+ *                                                 | 'sb3' | 'error' | 'toast', ... }
  */
 (function () {
   'use strict';
@@ -105,6 +106,284 @@
     window.location.reload();
   }
 
+  // ---------------------------------------------------------------------------
+  // Blocks as pictures
+  //
+  // Right-clicking a block adds two entries to Scratch's own menu, so the
+  // familiar Duplicate / Add Comment / Delete stay exactly where they were.
+  // The picture is the block plus everything joined below it — a whole script.
+  //
+  // Overwritten by the parent as soon as it knows which language is on.
+  // ---------------------------------------------------------------------------
+  var SVG_NS = 'http://www.w3.org/2000/svg';
+  var XLINK_NS = 'http://www.w3.org/1999/xlink';
+
+  var labels = {
+    copy: 'Copy as image',
+    save: 'Save as image',
+    copied: 'Copied — paste it wherever you like.',
+    saved: 'The image has been downloaded.',
+    fellBack: 'This browser will not copy images, so it was downloaded instead.',
+    failed: 'The image could not be created.',
+    filename: 'blocks.png'
+  };
+
+  var installed = false;
+
+  function installBlockExport() {
+    if (installed) return true;
+
+    var proto = blockPrototype();
+    if (!proto || !proto.showContextMenu_) return false;
+
+    var showContextMenu = proto.showContextMenu_;
+
+    // Scratch assembles the menu inside showContextMenu_ and offers exactly one
+    // way in: customContextMenu, called with the list just before it is shown.
+    // Blocks that define their own — procedures, variables — keep it; ours runs
+    // after theirs, so nothing they add is lost.
+    proto.showContextMenu_ = function (event) {
+      var block = this;
+      var own = Object.prototype.hasOwnProperty.call(this, 'customContextMenu')
+        ? this.customContextMenu
+        : null;
+
+      this.customContextMenu = function (options) {
+        if (own) own.call(block, options);
+        // Not in the palette: those blocks are rebuilt constantly, and
+        // right-clicking one shows no menu today.
+        if (!block.isInFlyout) {
+          options.push(exportOption(labels.copy, block, 'copy'));
+          options.push(exportOption(labels.save, block, 'save'));
+        }
+      };
+
+      try {
+        showContextMenu.call(this, event);
+      } finally {
+        if (own) this.customContextMenu = own;
+        else delete this.customContextMenu;
+      }
+    };
+
+    installed = true;
+    return true;
+  }
+
+  /**
+   * The bundle puts only a handful of names on window.Blockly and BlockSvg is
+   * not one of them. Every block in the palette is one, though, so the
+   * prototype is reachable through the workspace instead.
+   */
+  function blockPrototype() {
+    var Blockly = window.Blockly;
+    if (!Blockly || !Blockly.getMainWorkspace) return null;
+
+    var workspace = Blockly.getMainWorkspace();
+    var flyout = workspace && workspace.getFlyout && workspace.getFlyout();
+    var palette = flyout && flyout.getWorkspace && flyout.getWorkspace();
+    var blocks = palette && palette.getTopBlocks ? palette.getTopBlocks(false) : [];
+
+    return blocks.length ? Object.getPrototypeOf(blocks[0]) : null;
+  }
+
+  function exportOption(text, block, mode) {
+    return {
+      text: text,
+      enabled: true,
+      callback: function () { exportBlock(block, mode); }
+    };
+  }
+
+  function exportBlock(block, mode) {
+    var rendering = blockToBlob(block, 2);
+
+    if (mode === 'copy') {
+      // The blob is handed over as a promise so Safari, which only allows a
+      // clipboard write in the same turn as the click, still accepts it.
+      copyImage(rendering).then(function (copied) {
+        if (copied) return notify('success', labels.copied);
+        return rendering.then(function (blob) {
+          saveImage(blob);
+          notify('success', labels.fellBack);
+        });
+      }).catch(function (err) { notify('error', reason(err)); });
+      return;
+    }
+
+    rendering.then(function (blob) {
+      saveImage(blob);
+      notify('success', labels.saved);
+    }).catch(function (err) { notify('error', reason(err)); });
+  }
+
+  /** The block, its inputs and every block attached under it, as a PNG. */
+  function blockToBlob(block, scale) {
+    var root = block.getSvgRoot && block.getSvgRoot();
+    if (!root) return Promise.reject(new Error(labels.failed));
+
+    var box = root.getBBox();
+    var margin = 6;
+    var width = box.width + margin * 2;
+    var height = box.height + margin * 2;
+
+    var clone = root.cloneNode(true);
+    // The group's transform places it in the workspace; the viewBox below
+    // does the framing instead. Editor-only decoration goes as well.
+    clone.removeAttribute('transform');
+    stripClass(clone, 'blocklySelected');
+    stripClass(clone, 'blocklyDragging');
+    stripClass(clone, 'blocklyGlowingStack');
+
+    var svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('xmlns', SVG_NS);
+    svg.setAttribute('xmlns:xlink', XLINK_NS);
+    svg.setAttribute('width', Math.ceil(width * scale));
+    svg.setAttribute('height', Math.ceil(height * scale));
+    svg.setAttribute('viewBox', [box.x - margin, box.y - margin, width, height].join(' '));
+
+    var style = document.createElementNS(SVG_NS, 'style');
+    style.textContent = blocklyCss();
+    svg.appendChild(style);
+    svg.appendChild(clone);
+
+    return inlineImages(clone).then(function () {
+      return rasterise(svg, Math.ceil(width * scale), Math.ceil(height * scale));
+    });
+  }
+
+  /**
+   * Blockly colours the shapes with attributes but the text with a stylesheet,
+   * so the rules have to travel with the picture or every label comes out
+   * black and in the wrong font.
+   */
+  function blocklyCss() {
+    var css = '';
+    for (var i = 0; i < document.styleSheets.length; i++) {
+      var rules;
+      try {
+        rules = document.styleSheets[i].cssRules;
+      } catch (e) {
+        continue;   // a stylesheet from another origin cannot be read
+      }
+      if (!rules) continue;
+
+      for (var j = 0; j < rules.length; j++) {
+        var text = rules[j].cssText || '';
+        if (text.indexOf('.blockly') !== -1) css += text + '\n';
+      }
+    }
+    return css;
+  }
+
+  /**
+   * An <image> pointing at a file cannot load once the drawing is a data URL,
+   * so the green flag, the loop arrow and the dropdown carets are fetched and
+   * embedded first.
+   */
+  function inlineImages(root) {
+    var nodes = root.querySelectorAll ? root.querySelectorAll('image') : [];
+    var jobs = [];
+
+    for (var i = 0; i < nodes.length; i++) jobs.push(inlineImage(nodes[i]));
+    return Promise.all(jobs);
+  }
+
+  function inlineImage(node) {
+    var href = node.getAttributeNS(XLINK_NS, 'href') || node.getAttribute('href') || '';
+    if (!href || href.indexOf('data:') === 0) return Promise.resolve();
+
+    return fetch(href)
+      .then(function (response) { return response.blob(); })
+      .then(readAsDataUrl)
+      .then(function (url) {
+        node.setAttributeNS(XLINK_NS, 'href', url);
+        node.setAttribute('href', url);
+      })
+      .catch(function () {
+        // A missing icon draws as a broken image; leaving it out is tidier.
+        if (node.parentNode) node.parentNode.removeChild(node);
+      });
+  }
+
+  function rasterise(svg, width, height) {
+    var xml = new XMLSerializer().serializeToString(svg);
+    var url = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
+
+    return new Promise(function (resolve, reject) {
+      var image = new Image();
+
+      image.onload = function () {
+        var canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d').drawImage(image, 0, 0, width, height);
+        canvas.toBlob(function (blob) {
+          blob ? resolve(blob) : reject(new Error(labels.failed));
+        }, 'image/png');
+      };
+
+      image.onerror = function () { reject(new Error(labels.failed)); };
+      image.src = url;
+    });
+  }
+
+  function copyImage(blobPromise) {
+    var Item = window.ClipboardItem;
+    if (!navigator.clipboard || !navigator.clipboard.write || typeof Item !== 'function') {
+      return Promise.resolve(false);
+    }
+
+    try {
+      return navigator.clipboard.write([new Item({ 'image/png': blobPromise })])
+        .then(function () { return true; }, function () { return false; });
+    } catch (e) {
+      return Promise.resolve(false);
+    }
+  }
+
+  function saveImage(blob) {
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = labels.filename;
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode.removeChild(link);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
+  }
+
+  function stripClass(root, name) {
+    if (root.classList) root.classList.remove(name);
+    var found = root.querySelectorAll ? root.querySelectorAll('.' + name) : [];
+    for (var i = 0; i < found.length; i++) found[i].classList.remove(name);
+  }
+
+  function readAsDataUrl(blob) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () { resolve(reader.result); };
+      reader.onerror = function () { reject(new Error(labels.failed)); };
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  function reason(err) {
+    return String((err && err.message) || labels.failed);
+  }
+
+  /** The toast belongs to the app around this frame, not to this frame. */
+  function notify(level, message) {
+    post({ type: 'toast', level: level, message: message });
+  }
+
+  // The palette is filled some way into start-up, so the hook is installed on
+  // the first attempt that finds it rather than at load time.
+  (function waitForBlocks(attempt) {
+    if (installBlockExport() || attempt > 120) return;
+    setTimeout(function () { waitForBlocks(attempt + 1); }, 250);
+  })(0);
+
   window.addEventListener('message', function (event) {
     var data = event.data;
     if (!data || data.source !== PARENT_TAG) return;
@@ -116,6 +395,7 @@
       case 'green-flag':  if (vm) vm.greenFlag(); break;
       case 'stop-all':    if (vm) vm.stopAll(); break;
       case 'turbo':       if (vm) vm.setTurboMode(!!data.value); break;
+      case 'labels':      Object.assign(labels, data.labels || {}); break;
     }
   });
 

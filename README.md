@@ -231,6 +231,24 @@ Nothing is ever only in the browser:
 - **Export progress** on the dashboard downloads a child's whole record as JSON.
 - Teachers can export a class as **CSV** for a report.
 
+### Screenshots of code and blocks
+
+Right-clicking gives two extra entries wherever work is being made:
+
+- **In the Python editor** — the selected lines, or the whole file when nothing
+  is selected, drawn as a PNG with syntax colouring, real line numbers and the
+  file name in a window bar. `src/lib/codeImage.js` draws it straight onto a
+  canvas rather than photographing the editor, because Monaco only renders the
+  lines you can see and anything scrolled away would be missing.
+- **On a Scratch block** — that block and every block joined below it, as a
+  transparent PNG. `public/scratch-host.js` clones the block's SVG and brings
+  Blockly's stylesheet and its icons along as data URLs before rasterising it.
+  Scratch's own Duplicate / Add Comment / Delete stay exactly where they were.
+
+Both offer **copy** and **save**. Copying is the useful one — it pastes straight
+into a document — but a browser that refuses to put an image on the clipboard
+downloads the file instead and says so, rather than failing.
+
 ---
 
 ## Languages

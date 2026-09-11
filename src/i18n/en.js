@@ -50,6 +50,17 @@ export const en = {
   'role.teacher': 'teacher',
   'role.admin': 'admin',
 
+  /* --- exporting an image ------------------------------------------------- */
+  'img.copyAction': 'Copy code as image',
+  'img.saveAction': 'Save code as image',
+  'img.blockCopy': 'Copy blocks as image',
+  'img.blockSave': 'Save blocks as image',
+  'img.copied': 'Copied! Paste the image wherever you like.',
+  'img.saved': 'The image has been downloaded.',
+  'img.copyFellBack': 'This browser will not copy images — it was downloaded instead.',
+  'img.empty': 'There is nothing to make an image of.',
+  'img.failed': 'The image could not be created.',
+
   /* --- dashboard --------------------------------------------------------- */
   'dash.hi': 'Hi {name}! 👋',
   'dash.subtitle': 'Pick up where you left off, or start something new.',
