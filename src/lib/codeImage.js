@@ -5,18 +5,10 @@
  * renders the lines you can see, so anything scrolled out of view would be
  * missing from a picture of the editor.
  */
-
-const FONT_STACK = '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace'
-
-/** The app's dark palette, so an exported image matches the site. */
-const THEME = {
-  background: '#1e222b',
-  border: '#2a2f3a',
-  header: '#171a21',
-  title: '#8b93a7',
-  gutter: '#5a6172',
-  text: '#e6e9ef'
-}
+import {
+  HEADER_HEIGHT, PADDING, THEME,
+  createCanvas, drawWindow, loadFont, measuringContext, toPngBlob
+} from './imageCanvas'
 
 /**
  * Monaco hands back token types like `string.escape.python`; only the first
@@ -32,10 +24,6 @@ const TOKEN_COLOURS = {
   constant: '#6aa9f4',
   tag: '#6aa9f4'
 }
-
-const PADDING = 22
-const RADIUS = 12
-const HEADER_HEIGHT = 40
 
 /**
  * @param monaco      the monaco namespace, for its tokenizer
@@ -57,17 +45,12 @@ export async function renderCodeImage(monaco, {
   const text = code.replace(/\r\n?/g, '\n').replace(/\t/g, '    ').replace(/\s+$/, '')
   const lines = text.split('\n')
 
-  // Without this the first export can be drawn in the fallback font, because
-  // canvas does not wait for a web font the way the page does.
   await loadFont(fontSize)
 
   const tokenLines = safeTokenize(monaco, text, language)
   const lineHeight = Math.round(fontSize * 1.6)
 
-  // A throwaway context, only to measure — the real one is sized from these.
-  const ruler = document.createElement('canvas').getContext('2d')
-  ruler.font = `${fontSize}px ${FONT_STACK}`
-
+  const ruler = measuringContext(fontSize)
   const lastNumber = String(firstLine + lines.length - 1)
   const gutter = showLineNumbers ? ruler.measureText(lastNumber).width + 18 : 0
   const widest = lines.reduce((max, line) => Math.max(max, ruler.measureText(line || ' ').width), 0)
@@ -76,16 +59,7 @@ export async function renderCodeImage(monaco, {
   const width = Math.ceil(PADDING * 2 + gutter + widest)
   const height = Math.ceil(headerHeight + PADDING * 2 + lines.length * lineHeight)
 
-  const canvas = document.createElement('canvas')
-  canvas.width = Math.ceil(width * scale)
-  canvas.height = Math.ceil(height * scale)
-
-  const ctx = canvas.getContext('2d')
-  ctx.scale(scale, scale)
-  // Sizing a canvas resets its state, so the font is set after, not before.
-  ctx.font = `${fontSize}px ${FONT_STACK}`
-  ctx.textBaseline = 'middle'
-
+  const { canvas, ctx } = createCanvas(width, height, scale, fontSize)
   drawWindow(ctx, { width, height, title, fontSize })
 
   const top = headerHeight + PADDING
@@ -102,56 +76,7 @@ export async function renderCodeImage(monaco, {
     drawTokens(ctx, line, tokenLines[index], PADDING + gutter, y)
   })
 
-  return new Promise((resolve, reject) => {
-    canvas.toBlob(
-      (blob) => (blob ? resolve(blob) : reject(new Error('The image could not be created.'))),
-      'image/png'
-    )
-  })
-}
-
-/* ------------------------------------------------------------------ drawing */
-
-function drawWindow(ctx, { width, height, title, fontSize }) {
-  roundedRect(ctx, 0.5, 0.5, width - 1, height - 1, RADIUS)
-  ctx.fillStyle = THEME.background
-  ctx.fill()
-
-  if (title) {
-    // The bar is the panel colour clipped to the top corners, so the rounding
-    // of the window is not cut square by it.
-    ctx.save()
-    roundedRect(ctx, 0.5, 0.5, width - 1, height - 1, RADIUS)
-    ctx.clip()
-    ctx.fillStyle = THEME.header
-    ctx.fillRect(0, 0, width, HEADER_HEIGHT)
-    ctx.restore()
-
-    ctx.strokeStyle = THEME.border
-    ctx.lineWidth = 1
-    ctx.beginPath()
-    ctx.moveTo(0, HEADER_HEIGHT + 0.5)
-    ctx.lineTo(width, HEADER_HEIGHT + 0.5)
-    ctx.stroke()
-
-    // The three dots read as "this is a code window" at a glance.
-    ;['#ff5f57', '#febc2e', '#28c840'].forEach((colour, index) => {
-      ctx.beginPath()
-      ctx.arc(PADDING + index * 16, HEADER_HEIGHT / 2, 5, 0, Math.PI * 2)
-      ctx.fillStyle = colour
-      ctx.fill()
-    })
-
-    ctx.fillStyle = THEME.title
-    ctx.font = `${fontSize - 2}px ${FONT_STACK}`
-    ctx.fillText(title, PADDING + 60, HEADER_HEIGHT / 2)
-    ctx.font = `${fontSize}px ${FONT_STACK}`
-  }
-
-  roundedRect(ctx, 0.5, 0.5, width - 1, height - 1, RADIUS)
-  ctx.strokeStyle = THEME.border
-  ctx.lineWidth = 1
-  ctx.stroke()
+  return toPngBlob(canvas)
 }
 
 function drawTokens(ctx, line, tokens, startX, y) {
@@ -175,19 +100,6 @@ function drawTokens(ctx, line, tokens, startX, y) {
   })
 }
 
-function roundedRect(ctx, x, y, width, height, radius) {
-  const r = Math.min(radius, width / 2, height / 2)
-  ctx.beginPath()
-  ctx.moveTo(x + r, y)
-  ctx.arcTo(x + width, y, x + width, y + height, r)
-  ctx.arcTo(x + width, y + height, x, y + height, r)
-  ctx.arcTo(x, y + height, x, y, r)
-  ctx.arcTo(x, y, x + width, y, r)
-  ctx.closePath()
-}
-
-/* ------------------------------------------------------------------ helpers */
-
 function colourFor(type) {
   return TOKEN_COLOURS[String(type ?? '').split('.')[0]] ?? THEME.text
 }
@@ -198,14 +110,5 @@ function safeTokenize(monaco, text, language) {
   } catch {
     // Worst case the image is monochrome, which still beats no image at all.
     return []
-  }
-}
-
-async function loadFont(fontSize) {
-  try {
-    await document.fonts?.load(`${fontSize}px "JetBrains Mono"`)
-  } catch {
-    // No font loading API, or the web font never arrived; the stack falls
-    // through to a monospace face that is already there.
   }
 }

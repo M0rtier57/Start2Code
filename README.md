@@ -244,8 +244,15 @@ Right-clicking gives two extra entries wherever work is being made:
   transparent PNG. `public/scratch-host.js` clones the block's SVG and brings
   Blockly's stylesheet and its icons along as data URLs before rasterising it.
   Scratch's own Duplicate / Add Comment / Delete stay exactly where they were.
+- **On the Python console** — everything printed so far, drawn in the same
+  window frame with errors still red and the runner's own notes still blue.
+  `src/lib/consoleImage.js` re-flows the many small writes back into lines and
+  wraps them, so output that scrolled out of view is in the picture too.
+- **On the Python stage** — the game window as it stands right now. The
+  right-click lands inside the runner iframe, so `public/runner.html` forwards
+  the position and hands back the canvas as a PNG when asked.
 
-Both offer **copy** and **save**. Copying is the useful one — it pastes straight
+All four offer **copy** and **save**. Copying is the useful one — it pastes straight
 into a document — but a browser that refuses to put an image on the clipboard
 downloads the file instead and says so, rather than failing.
 

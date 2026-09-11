@@ -9,7 +9,7 @@ import { useI18n } from '../i18n'
  * separately), so they are rendered as a single flowing text run per stream
  * rather than one line per message.
  */
-export default function Console({ entries, running, onClear, height, onResizeStart }) {
+export default function Console({ entries, running, onClear, height, onResizeStart, onContextMenu }) {
   const { t } = useI18n()
   const scroller = useRef(null)
   const pinned = useRef(true)
@@ -27,7 +27,7 @@ export default function Console({ entries, running, onClear, height, onResizeSta
   }
 
   return (
-    <div className="console" style={{ height }}>
+    <div className="console" style={{ height }} onContextMenu={onContextMenu}>
       <div
         onMouseDown={onResizeStart}
         style={{ height: 6, cursor: 'row-resize', background: 'transparent', flexShrink: 0, marginTop: -6 }}

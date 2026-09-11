@@ -64,6 +64,11 @@ export const nl = {
   'img.saved': 'De afbeelding is gedownload.',
   'img.copyFellBack': 'Deze browser kopieert geen afbeeldingen — hij is gedownload.',
   'img.empty': 'Er is niets om een afbeelding van te maken.',
+  'img.copyAction2': 'Kopieer als afbeelding',
+  'img.saveAction2': 'Bewaar als afbeelding',
+  'img.emptyConsole': 'De console is leeg — start je programma eerst.',
+  'img.stageEmpty': 'Er staat niets op het speelveld om een foto van te maken.',
+  'img.stageTainted': 'Dit speelveld gebruikt een afbeelding van een andere website; de browser geeft de foto dan niet vrij.',
   'img.failed': 'De afbeelding kon niet gemaakt worden.',
 
   /* --- dashboard --------------------------------------------------------- */

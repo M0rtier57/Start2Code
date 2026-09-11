@@ -59,6 +59,11 @@ export const en = {
   'img.saved': 'The image has been downloaded.',
   'img.copyFellBack': 'This browser will not copy images — it was downloaded instead.',
   'img.empty': 'There is nothing to make an image of.',
+  'img.copyAction2': 'Copy as image',
+  'img.saveAction2': 'Save as image',
+  'img.emptyConsole': 'The console is empty — run your program first.',
+  'img.stageEmpty': 'There is nothing on the stage to take a picture of.',
+  'img.stageTainted': 'This stage uses an image from another website, so the browser will not hand the picture back.',
   'img.failed': 'The image could not be created.',
 
   /* --- dashboard --------------------------------------------------------- */
