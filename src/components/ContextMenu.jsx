@@ -29,14 +29,23 @@ export default function ContextMenu({ x, y, items, onClose }) {
     const close = () => onClose()
     const onKey = (event) => { if (event.key === 'Escape') onClose() }
 
+    // A press inside the menu is a pick in progress. Closing on it would
+    // unmount the button before its click ever lands, and the menu would look
+    // like it did nothing at all. React cannot stop this from the element
+    // itself — a capture listener on the window runs long before React sees
+    // the event — so the test belongs here.
+    const onDown = (event) => {
+      if (!menu.current?.contains(event.target)) onClose()
+    }
+
     // Capture, so the menu closes even when something below stops the event.
-    window.addEventListener('mousedown', close, true)
+    window.addEventListener('mousedown', onDown, true)
     window.addEventListener('resize', close)
     window.addEventListener('blur', close)
     window.addEventListener('keydown', onKey)
 
     return () => {
-      window.removeEventListener('mousedown', close, true)
+      window.removeEventListener('mousedown', onDown, true)
       window.removeEventListener('resize', close)
       window.removeEventListener('blur', close)
       window.removeEventListener('keydown', onKey)
@@ -49,9 +58,6 @@ export default function ContextMenu({ x, y, items, onClose }) {
       className="context-menu"
       style={{ left: position.left, top: position.top }}
       role="menu"
-      // The window-level listener above would otherwise close the menu before
-      // the click on an item ever lands.
-      onMouseDown={(event) => event.stopPropagation()}
     >
       {items.map((item) => (
         <button
