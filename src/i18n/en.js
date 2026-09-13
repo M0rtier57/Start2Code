@@ -55,6 +55,8 @@ export const en = {
   'img.saveAction': 'Save code as image',
   'img.blockCopy': 'Copy blocks as image',
   'img.blockSave': 'Save blocks as image',
+  'img.stageCopy': 'Copy the stage as an image',
+  'img.stageSave': 'Save the stage as an image',
   'img.copied': 'Copied! Paste the image wherever you like.',
   'img.saved': 'The image has been downloaded.',
   'img.copyFellBack': 'This browser will not copy images — it was downloaded instead.',
