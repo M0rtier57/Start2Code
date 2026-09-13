@@ -170,6 +170,7 @@
     };
 
     installed = true;
+    window.__s2cExportInstalled = true;   // debug handle, as for the VM above
     return true;
   }
 
@@ -433,6 +434,13 @@
 
   document.addEventListener('mousedown', function (event) {
     if (ownMenu && !ownMenu.contains(event.target)) closeMenu();
+
+    // Last chance to hook Scratch's own menu, and it has to be taken here:
+    // Blockly builds that menu from the right-button mousedown, long before
+    // the contextmenu event, so hooking any later misses the very click that
+    // wanted it. This listener captures, so it still runs first. Waiting for
+    // start-up to finish is a guess about timing; this is not.
+    if (event.button === 2) installBlockExport();
   }, true);
   document.addEventListener('keydown', function (event) {
     if (event.key === 'Escape') closeMenu();

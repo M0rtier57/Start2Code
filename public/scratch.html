@@ -61,6 +61,10 @@
     window['react-dom'] = window.ReactDOM;
   </script>
   <script src="/scratch-gui.js"></script>
-  <script src="/scratch-host.js"></script>
+  <!-- The version is part of the URL on purpose. Vite copies public/ across
+       verbatim, so this file keeps its name build after build and a browser
+       that cached it once will happily keep the old copy for months. Bump
+       the number whenever scratch-host.js changes. -->
+  <script src="/scratch-host.js?v=2"></script>
 </body>
 </html>

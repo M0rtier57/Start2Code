@@ -258,6 +258,16 @@ Right-clicking gives two extra entries wherever work is being made:
   right-click lands inside the runner iframe, so `public/runner.html` forwards
   the position and hands back the canvas as a PNG when asked.
 
+Blockly builds a block's menu from the right-button **mousedown**, not from the
+contextmenu event that follows, so the hook into it is installed from a mousedown
+listener — installing it on a timer after start-up is a guess about how long an
+18MB bundle takes to arrive, and a guess that is wrong leaves the editor with no
+export at all.
+
+`scratch-host.js` is copied across by Vite under its own name every build, so a
+browser that cached it once keeps that copy indefinitely. `scratch.html` loads it
+with a version in the URL; bump the number whenever the file changes.
+
 All four offer **copy** and **save**. Copying is the useful one — it pastes straight
 into a document — but a browser that refuses to put an image on the clipboard
 downloads the file instead and says so, rather than failing.
