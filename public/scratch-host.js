@@ -125,7 +125,10 @@
     saved: 'The image has been downloaded.',
     fellBack: 'This browser will not copy images, so it was downloaded instead.',
     failed: 'The image could not be created.',
-    filename: 'blocks.png'
+    filename: 'blocks.png',
+    stageCopy: 'Copy the stage as an image',
+    stageSave: 'Save the stage as an image',
+    stageFilename: 'stage.png'
   };
 
   var installed = false;
@@ -196,15 +199,18 @@
   }
 
   function exportBlock(block, mode) {
-    var rendering = blockToBlob(block, 2);
+    deliver(blockToBlob(block, 2), mode, labels.filename);
+  }
 
+  /** Copy if asked and the browser allows it, download otherwise. */
+  function deliver(rendering, mode, filename) {
     if (mode === 'copy') {
       // The blob is handed over as a promise so Safari, which only allows a
       // clipboard write in the same turn as the click, still accepts it.
       copyImage(rendering).then(function (copied) {
         if (copied) return notify('success', labels.copied);
         return rendering.then(function (blob) {
-          saveImage(blob);
+          saveImage(blob, filename);
           notify('success', labels.fellBack);
         });
       }).catch(function (err) { notify('error', reason(err)); });
@@ -212,7 +218,7 @@
     }
 
     rendering.then(function (blob) {
-      saveImage(blob);
+      saveImage(blob, filename);
       notify('success', labels.saved);
     }).catch(function (err) { notify('error', reason(err)); });
   }
@@ -342,11 +348,11 @@
     }
   }
 
-  function saveImage(blob) {
+  function saveImage(blob, filename) {
     var url = URL.createObjectURL(blob);
     var link = document.createElement('a');
     link.href = url;
-    link.download = labels.filename;
+    link.download = filename || labels.filename;
     document.body.appendChild(link);
     link.click();
     link.parentNode.removeChild(link);
@@ -377,10 +383,145 @@
     post({ type: 'toast', level: level, message: message });
   }
 
+  // ---------------------------------------------------------------------------
+  // The two places Scratch offers no menu of its own
+  //
+  // A block in the palette and the stage both swallow the right-click without
+  // showing anything, so there is nothing to add an entry to. They get a small
+  // menu of our own instead, deliberately plain: it only has to look like it
+  // belongs next to Scratch's.
+  // ---------------------------------------------------------------------------
+  var ownMenu = null;
+
+  function closeMenu() {
+    if (!ownMenu) return;
+    if (ownMenu.parentNode) ownMenu.parentNode.removeChild(ownMenu);
+    ownMenu = null;
+  }
+
+  function showMenu(x, y, items) {
+    closeMenu();
+
+    var menu = document.createElement('div');
+    menu.className = 's2c-menu';
+
+    items.forEach(function (item) {
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.className = 's2c-menu-item';
+      button.textContent = item.text;
+      // On mousedown, not click: the picture has to be made in the same turn
+      // as the press or Safari refuses the clipboard write that follows.
+      button.addEventListener('mousedown', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        closeMenu();
+        item.callback();
+      });
+      menu.appendChild(button);
+    });
+
+    document.body.appendChild(menu);
+
+    // Measured rather than guessed, so a menu opened near an edge flips.
+    var box = menu.getBoundingClientRect();
+    menu.style.left = Math.max(4, Math.min(x, window.innerWidth - box.width - 4)) + 'px';
+    menu.style.top = Math.max(4, Math.min(y, window.innerHeight - box.height - 4)) + 'px';
+
+    ownMenu = menu;
+  }
+
+  document.addEventListener('mousedown', function (event) {
+    if (ownMenu && !ownMenu.contains(event.target)) closeMenu();
+  }, true);
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') closeMenu();
+  }, true);
+  window.addEventListener('blur', closeMenu);
+  window.addEventListener('resize', closeMenu);
+
+  function menuStyles() {
+    var style = document.createElement('style');
+    style.textContent =
+      '.s2c-menu{position:fixed;z-index:2147483000;min-width:190px;padding:4px;' +
+      'background:#fff;border:1px solid #d6d9e0;border-radius:8px;' +
+      'box-shadow:0 12px 28px rgba(0,0,0,.22);font-family:"Helvetica Neue",Helvetica,Arial,sans-serif}' +
+      '.s2c-menu-item{display:block;width:100%;padding:8px 12px;border:0;border-radius:5px;' +
+      'background:none;color:#575e75;font-size:13px;text-align:left;cursor:pointer}' +
+      '.s2c-menu-item:hover{background:#e9f1fc;color:#1e2337}';
+    document.head.appendChild(style);
+  }
+
+  /** The block under the pointer, if the pointer is over the palette. */
+  function paletteBlockAt(target) {
+    if (!target || !target.closest || !target.closest('.blocklyFlyout')) return null;
+
+    var node = target.closest('[data-id]');
+    var workspace = window.Blockly && window.Blockly.getMainWorkspace();
+    var flyout = workspace && workspace.getFlyout && workspace.getFlyout();
+    var palette = flyout && flyout.getWorkspace && flyout.getWorkspace();
+
+    return node && palette ? palette.getBlockById(node.getAttribute('data-id')) : null;
+  }
+
+  function stageCanvas() {
+    var renderer = vm && vm.runtime && vm.runtime.renderer;
+    return (renderer && renderer.canvas) || null;
+  }
+
+  /**
+   * The stage is WebGL, and a WebGL drawing buffer is cleared as soon as the
+   * frame is composited, so it has to be redrawn in the same breath as it is
+   * read or the picture comes out blank.
+   */
+  function stageToBlob() {
+    var canvas = stageCanvas();
+    if (!canvas) return Promise.reject(new Error(labels.failed));
+
+    try {
+      var renderer = vm.runtime.renderer;
+      if (renderer.draw) renderer.draw();
+      return dataUrlToBlob(canvas.toDataURL('image/png'));
+    } catch (e) {
+      return Promise.reject(new Error(labels.failed));
+    }
+  }
+
+  function dataUrlToBlob(dataUrl) {
+    return fetch(dataUrl).then(function (response) { return response.blob(); });
+  }
+
+  document.addEventListener('contextmenu', function (event) {
+    var block = paletteBlockAt(event.target);
+    var canvas = stageCanvas();
+    var onStage = canvas && (event.target === canvas || canvas.contains(event.target));
+
+    if (block) {
+      event.preventDefault();
+      showMenu(event.clientX, event.clientY, [
+        { text: labels.copy, callback: function () { deliver(blockToBlob(block, 2), 'copy', labels.filename); } },
+        { text: labels.save, callback: function () { deliver(blockToBlob(block, 2), 'save', labels.filename); } }
+      ]);
+      return;
+    }
+
+    if (onStage) {
+      event.preventDefault();
+      showMenu(event.clientX, event.clientY, [
+        { text: labels.stageCopy, callback: function () { deliver(stageToBlob(), 'copy', labels.stageFilename); } },
+        { text: labels.stageSave, callback: function () { deliver(stageToBlob(), 'save', labels.stageFilename); } }
+      ]);
+    }
+  }, true);
+
+  menuStyles();
+
   // The palette is filled some way into start-up, so the hook is installed on
-  // the first attempt that finds it rather than at load time.
+  // the first attempt that finds it rather than at load time. The window is
+  // generous on purpose: an 18MB bundle over a slow line can take a while, and
+  // giving up early leaves the editor with no export at all.
   (function waitForBlocks(attempt) {
-    if (installBlockExport() || attempt > 120) return;
+    if (installBlockExport() || attempt > 960) return;
     setTimeout(function () { waitForBlocks(attempt + 1); }, 250);
   })(0);
 

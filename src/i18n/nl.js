@@ -60,6 +60,8 @@ export const nl = {
   'img.saveAction': 'Bewaar code als afbeelding',
   'img.blockCopy': 'Kopieer blokken als afbeelding',
   'img.blockSave': 'Bewaar blokken als afbeelding',
+  'img.stageCopy': 'Kopieer speelveld als afbeelding',
+  'img.stageSave': 'Bewaar speelveld als afbeelding',
   'img.copied': 'Gekopieerd! Plak de afbeelding waar je wil.',
   'img.saved': 'De afbeelding is gedownload.',
   'img.copyFellBack': 'Deze browser kopieert geen afbeeldingen — hij is gedownload.',

@@ -142,7 +142,10 @@ export default function ScratchWorkspace() {
         saved: t('img.saved'),
         fellBack: t('img.copyFellBack'),
         failed: t('img.failed'),
-        filename: toFilename(title, 'png')
+        filename: toFilename(title, 'png'),
+        stageCopy: t('img.stageCopy'),
+        stageSave: t('img.stageSave'),
+        stageFilename: toFilename(`${title}-speelveld`, 'png')
       }
     }, '*')
   }, [editorReady, t, title])

@@ -244,6 +244,12 @@ Right-clicking gives two extra entries wherever work is being made:
   transparent PNG. `public/scratch-host.js` clones the block's SVG and brings
   Blockly's stylesheet and its icons along as data URLs before rasterising it.
   Scratch's own Duplicate / Add Comment / Delete stay exactly where they were.
+- **On a block in the Scratch palette, and on the Scratch stage** — Scratch
+  shows no menu of its own in either place, so there is nothing to add an entry
+  to and `scratch-host.js` puts up a small menu of its own instead. The stage is
+  WebGL, whose drawing buffer is cleared the moment the frame is composited, so
+  it is redrawn in the same breath as it is read — otherwise the picture comes
+  out blank.
 - **On the Python console** — everything printed so far, drawn in the same
   window frame with errors still red and the runner's own notes still blue.
   `src/lib/consoleImage.js` re-flows the many small writes back into lines and
