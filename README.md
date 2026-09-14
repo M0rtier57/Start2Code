@@ -272,6 +272,35 @@ All four offer **copy** and **save**. Copying is the useful one — it pastes st
 into a document — but a browser that refuses to put an image on the clipboard
 downloads the file instead and says so, rather than failing.
 
+### A class's worth of accounts at once
+
+A child should not need an email address. **Classes → a class → Leerlingen
+aanmaken** takes a list of first names and makes an account for each, joins them
+all to the class, and hands back the list of logins to print.
+
+The login name *is* the email address, computed rather than looked up:
+`Emma` becomes `emma@leerling.start2code.app`, so the login box can turn what a
+child typed into something Supabase understands without querying anything first
+(`src/lib/studentAccounts.js`). Nothing is ever sent to that domain — it exists
+only because Supabase Auth insists on an address, and it is deliberately one
+nobody owns. The cost of computing it is that first names must be unique across
+the site, so a second Emma is created as `emma2` and the teacher is shown which
+name to hand out.
+
+The accounts are made with the ordinary public sign-up — the same call the
+"Account maken" tab makes — through a throwaway Supabase client that persists
+nothing, so no `service_role` key is involved and the teacher stays logged in
+while a class is created around them. No schema change is needed for any of it.
+
+**One setting has to be right:** Authentication → Providers → Email →
+**Confirm email** must be *off*. With it on, Supabase waits for a confirmation
+that an address like this can never answer, and the accounts exist but cannot
+log in. The app detects exactly that case and says so instead of pretending it
+worked.
+
+Passwords are shown once, on the screen that follows, and cannot be recovered
+afterwards — Supabase only keeps a hash. Copy or download the list there.
+
 ---
 
 ## Languages

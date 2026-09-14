@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase, isConfigured } from '../lib/supabaseClient'
+import { toLoginEmail } from '../lib/studentAccounts'
 import Logo from '../components/Logo'
 import LanguagePicker from '../components/LanguagePicker'
 import { useToast } from '../components/ui'
@@ -23,7 +24,12 @@ export default function Login() {
 
     try {
       if (mode === 'login') {
-        const { error } = await supabase.auth.signInWithPassword({ email, password })
+        // A child types their first name; a teacher types an address. Both
+        // arrive here, and only Supabase needs to know the difference.
+        const { error } = await supabase.auth.signInWithPassword({
+          email: toLoginEmail(email),
+          password
+        })
         if (error) throw error
         // The auth listener in AuthProvider takes it from here.
       } else {
@@ -84,8 +90,17 @@ export default function Login() {
             )}
 
             <label className="field">
-              {t('login.email')}
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t('login.emailPlaceholder')} required autoComplete="email" />
+              {mode === 'login' ? t('login.emailOrName') : t('login.email')}
+              <input
+                type={mode === 'login' ? 'text' : 'email'}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder={mode === 'login' ? t('login.emailOrNamePlaceholder') : t('login.emailPlaceholder')}
+                required
+                autoComplete={mode === 'login' ? 'username' : 'email'}
+                autoCapitalize="none"
+                spellCheck={false}
+              />
             </label>
 
             <label className="field">

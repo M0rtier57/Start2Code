@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+
+import AddStudentsModal from '../components/AddStudentsModal'
 import { useNavigate } from 'react-router-dom'
 
 import LessonsManager from '../components/LessonsManager'
@@ -127,6 +129,7 @@ function ClassDetail({ klass, onChanged }) {
   const [inspect, setInspect] = useState(null)
   const [reviews, setReviews] = useState(new Map())
   const [projectFilter, setProjectFilter] = useState('waiting')
+  const [addOpen, setAddOpen] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -221,6 +224,7 @@ function ClassDetail({ klass, onChanged }) {
             navigator.clipboard?.writeText(klass.join_code)
             toast.success('Code copied')
           }}>Copy</button>
+          <button className="btn btn-sm" onClick={() => setAddOpen(true)}>{t('bulk.button')}</button>
           <button className="btn btn-ghost btn-sm" onClick={exportCsv}>⬇ CSV</button>
           <button className="btn btn-ghost btn-sm" onClick={async () => {
             await archiveClass(klass.id, !klass.archived); onChanged()
@@ -239,6 +243,9 @@ function ClassDetail({ klass, onChanged }) {
           <Empty emoji="🧑‍🎓" title="No students have joined yet">
             Share the code <strong>{klass.join_code}</strong> with your class. They enter it
             from their dashboard under “Join a class”.
+            <div className="row mt-4" style={{ justifyContent: 'center' }}>
+              <button className="btn" onClick={() => setAddOpen(true)}>{t('bulk.button')}</button>
+            </div>
           </Empty>
         </div>
       ) : (
@@ -425,6 +432,14 @@ function ClassDetail({ klass, onChanged }) {
             })
           }}
           onClose={() => setInspect(null)}
+        />
+      )}
+
+      {addOpen && (
+        <AddStudentsModal
+          klass={klass}
+          onClose={() => setAddOpen(false)}
+          onCreated={load}
         />
       )}
     </div>
