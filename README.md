@@ -301,6 +301,21 @@ worked.
 Passwords are shown once, on the screen that follows, and cannot be recovered
 afterwards — Supabase only keeps a hash. Copy or download the list there.
 
+### When a network blocks the database
+
+The app is served from its own domain, so it loads perfectly on a school or
+guest network that filters `*.supabase.co` — and then every request dies at the
+browser with "Failed to fetch". The login screen tells those cases apart
+(`src/lib/connectivity.js`): no connection at all, a network that will not let
+us through, or a password that is simply wrong. A blocked network gets the host
+to allow, spelled out, rather than a wrong-password message the child cannot act
+on.
+
+The real fix, when a school will not budge, is a **custom domain** for Supabase
+(Project Settings → Custom Domains), so the API answers on a name belonging to
+this project instead of one shared with every Supabase project in the world.
+`src/lib/config.js` is the single place that would change.
+
 ---
 
 ## Languages

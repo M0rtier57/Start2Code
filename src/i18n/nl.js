@@ -44,6 +44,11 @@ export const nl = {
   'login.errorCredentials': 'Dat e-mailadres en wachtwoord horen niet bij elkaar.',
   'login.errorExists': 'Dat e-mailadres heeft al een account — probeer in te loggen.',
   'login.errorPassword': 'Gebruik een wachtwoord van minstens 6 tekens.',
+  'login.offlineTitle': 'Geen internet',
+  'login.offlineBody': 'Dit toestel heeft op dit moment geen verbinding. Controleer de wifi en probeer opnieuw.',
+  'login.blockedTitle': 'Dit netwerk laat ons er niet door',
+  'login.blockedBody': 'De website zelf is geladen, maar de database is onbereikbaar. Dat komt bijna altijd door een filter op het netwerk — vaak op school of op een gastnetwerk. Probeer een ander netwerk (bijvoorbeeld je telefoon als hotspot), of vraag de beheerder om dit adres toe te laten:',
+  'login.blockedHost': 'Adres om toe te laten:',
   'login.notConnected': 'Niet verbonden met Supabase',
 
   /* --- navigatie --------------------------------------------------------- */

@@ -39,6 +39,11 @@ export const en = {
   'login.errorCredentials': 'That email and password do not match.',
   'login.errorExists': 'That email already has an account — try logging in.',
   'login.errorPassword': 'Please use a password of at least 6 characters.',
+  'login.offlineTitle': 'No internet',
+  'login.offlineBody': 'This device has no connection right now. Check the wifi and try again.',
+  'login.blockedTitle': 'This network will not let us through',
+  'login.blockedBody': 'The website itself loaded, but the database cannot be reached. That is nearly always a filter on the network — often at a school or on a guest network. Try another network (your phone as a hotspot, for instance), or ask the administrator to allow this address:',
+  'login.blockedHost': 'Address to allow:',
   'login.notConnected': 'Not connected to Supabase',
 
   /* --- navigation -------------------------------------------------------- */

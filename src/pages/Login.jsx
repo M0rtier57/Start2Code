@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase, isConfigured } from '../lib/supabaseClient'
 import { toLoginEmail } from '../lib/studentAccounts'
+import { diagnose, isNetworkError, supabaseHost } from '../lib/connectivity'
 import Logo from '../components/Logo'
 import LanguagePicker from '../components/LanguagePicker'
 import { useToast } from '../components/ui'
@@ -16,11 +17,13 @@ export default function Login() {
   const [role, setRole] = useState('student')
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState('')
+  const [blocked, setBlocked] = useState('')   // '' | 'offline' | 'blocked'
 
   const submit = async (event) => {
     event.preventDefault()
     setBusy(true)
     setNotice('')
+    setBlocked('')
 
     try {
       if (mode === 'login') {
@@ -47,7 +50,15 @@ export default function Login() {
         }
       }
     } catch (error) {
-      toast.error(friendlyAuthError(error.message, t))
+      // A request that never left the building is not a login problem, and
+      // saying "wrong password" to a child on a school network sends them
+      // hunting for a mistake they did not make.
+      if (isNetworkError(error)) {
+        const why = await diagnose()
+        setBlocked(why === 'offline' ? 'offline' : 'blocked')
+      } else {
+        toast.error(friendlyAuthError(error.message, t))
+      }
     } finally {
       setBusy(false)
     }
@@ -80,6 +91,26 @@ export default function Login() {
           </div>
 
           {notice && <p className="small mt-2" style={{ color: 'var(--ok)' }}>{notice}</p>}
+
+          {blocked && (
+            <div
+              className="card card-flat mt-2"
+              style={{ background: 'var(--danger-soft)', borderColor: '#ffc9c9' }}
+              role="alert"
+            >
+              <strong className="small">
+                {blocked === 'offline' ? t('login.offlineTitle') : t('login.blockedTitle')}
+              </strong>
+              <p className="tiny mt-2">
+                {blocked === 'offline' ? t('login.offlineBody') : t('login.blockedBody')}
+              </p>
+              {blocked === 'blocked' && (
+                <p className="tiny mt-2">
+                  {t('login.blockedHost')} <code>{supabaseHost()}</code>
+                </p>
+              )}
+            </div>
+          )}
 
           <form onSubmit={submit} className="col" style={{ gap: 14 }}>
             {mode === 'signup' && (
