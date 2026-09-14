@@ -20,7 +20,7 @@
  */
 import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from './config'
-import { supabase } from './supabaseClient'
+import { resilientFetch, supabase } from './supabaseClient'
 
 export const STUDENT_DOMAIN = 'leerling.start2code.app'
 
@@ -97,7 +97,9 @@ export function makePassword() {
  */
 function throwawayClient() {
   return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    // Same detour round a blocked network as the main client takes.
+    global: { fetch: resilientFetch }
   })
 }
 

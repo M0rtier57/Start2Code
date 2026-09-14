@@ -29,6 +29,12 @@
   RewriteEngine On
   RewriteBase /
 
+  # --- Supabase through our own domain --------------------------------------
+  # Must come before everything below it: these paths are not files on disk, and
+  # both the 404 rule (a project is a .sb3) and the index.html fallback would
+  # otherwise swallow them. See public/sb/proxy.php for why this exists.
+  RewriteRule ^sb/ sb/proxy.php [L,QSA]
+
   # Leave real files and folders alone (index.html, scratch.html, runner.html,
   # /static/..., /assets/..., /vendor/...).
   RewriteCond %{REQUEST_FILENAME} -f [OR]
