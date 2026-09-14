@@ -311,10 +311,43 @@ us through, or a password that is simply wrong. A blocked network gets the host
 to allow, spelled out, rather than a wrong-password message the child cannot act
 on.
 
-The real fix, when a school will not budge, is a **custom domain** for Supabase
-(Project Settings → Custom Domains), so the API answers on a name belonging to
-this project instead of one shared with every Supabase project in the world.
-`src/lib/config.js` is the single place that would change.
+#### Getting through it: the proxy
+
+`public/sb/proxy.php` hands those requests on from this domain, so the browser
+only ever talks to a name the filter already allows. It deploys with the site —
+Vite copies `public/` verbatim — and the rewrite that points `/sb/…` at it lives
+in `public/.htaccess`, ahead of the single-page-app rules that would otherwise
+swallow the path.
+
+It is not used unless it is needed. Every request goes straight to Supabase
+first; only a failure *at the network level* (the request never reached a
+server, as opposed to a server saying no) makes the client look for the proxy,
+and the rest of that tab's requests then take the same road
+(`src/lib/supabaseClient.js`). On a normal network nothing passes through PHP at
+all.
+
+The proxy has to prove itself first. A host where it was never installed answers
+`/sb/ping` with the app's own index.html and a cheerful 200, so the client checks
+for `{"proxy":"ok"}` before trusting it with anything — feeding HTML to the
+Supabase client instead of JSON would be a far more confusing failure than the
+blocked network it set out to fix.
+
+It is deliberately not a general proxy: the destination is fixed in the file and
+only `auth/v1`, `rest/v1` and `storage/v1` are forwarded, so it cannot be pointed
+at anything else by whoever finds it.
+
+**One side effect worth knowing.** Supabase counts its rate limits per IP
+address. Traffic through the proxy arrives from the web server, so everyone
+using it shares one allowance — a whole class logging in within a few minutes
+can hit the sign-in limit that a single child never would. It only applies to
+those on a blocked network, since everyone else still goes direct.
+
+#### The tidier fix
+
+A **custom domain** for Supabase (Project Settings → Custom Domains, a paid
+add-on) makes the API answer on a name belonging to this project rather than one
+shared with every Supabase project in the world. No PHP in the path, no shared
+rate limit. `src/lib/config.js` is the single place that would change.
 
 ---
 
