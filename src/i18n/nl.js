@@ -192,6 +192,19 @@ export const nl = {
   'console.stopped': '\n▸ Gestopt.\n',
 
   /* --- nakijken ---------------------------------------------------------- */
+  'roster.add': '+ Leerling toevoegen',
+  'roster.addTitle': 'Leerling toevoegen aan {class}',
+  'roster.addSub': 'Zoek een kind dat al een account heeft. Het komt meteen in je klas.',
+  'roster.searchLabel': 'Zoek op naam of e-mailadres',
+  'roster.searchPlaceholder': 'Bijvoorbeeld: Lotte of lotte@school.be',
+  'roster.searchHint': 'Typ minstens 2 letters.',
+  'roster.noResults': 'Geen leerling gevonden met die naam of dat e-mailadres.',
+  'roster.noAccountYet': 'Heeft het kind nog geen account? Laat het eerst zelf een account maken, of geef het de klascode.',
+  'roster.alreadyIn': 'Zit al in deze klas',
+  'roster.addButton': 'Toevoegen',
+  'roster.added': '{name} zit nu in je klas!',
+  'roster.searching': 'Bezig met zoeken…',
+
   'review.title': 'Nakijken',
   'review.pass': 'Geslaagd',
   'review.fail': 'Nog niet in orde',

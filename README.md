@@ -206,6 +206,29 @@ through a class without hunting.
 Children can read the review of their own work but never write one; that is enforced
 by the policies in `supabase/reviews.sql`, not by hiding buttons.
 
+## Adding children to a class
+
+Two ways in:
+
+- **The join code** — a child enters the six-letter code from their dashboard.
+- **By hand** — Classes -> **+ Leerling toevoegen**, search by name or email and
+  add them. For the ones who lost the code, mistyped it, or joined late.
+
+Inserting into class_members was already permitted for the teacher of that class.
+What the manual route needed was a way to *find* a child who is not in any of
+your classes yet, because profiles_select deliberately limits a teacher to the
+students they already teach.
+
+Rather than widening that policy, supabase/add-students.sql adds one narrow
+SECURITY DEFINER function, search_students(q), which:
+
+- only answers for a teacher or admin,
+- never returns teachers or admins, only children,
+- requires at least two characters, so it cannot be used to list every child,
+- returns at most 25 rows.
+
+A child must already have an account; there is no way to create one for them.
+
 ## Roles
 
 | Role | Can do |

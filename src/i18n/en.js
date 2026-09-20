@@ -187,6 +187,19 @@ export const en = {
   'console.stopped': '\n▸ Stopped.\n',
 
   /* --- review ------------------------------------------------------------ */
+  'roster.add': '+ Add a student',
+  'roster.addTitle': 'Add a student to {class}',
+  'roster.addSub': 'Find a child who already has an account. They join your class straight away.',
+  'roster.searchLabel': 'Search by name or email',
+  'roster.searchPlaceholder': 'For example: Lotte or lotte@school.be',
+  'roster.searchHint': 'Type at least 2 letters.',
+  'roster.noResults': 'No student found with that name or email.',
+  'roster.noAccountYet': 'No account yet? Ask them to sign up first, or give them the class code.',
+  'roster.alreadyIn': 'Already in this class',
+  'roster.addButton': 'Add',
+  'roster.added': '{name} is now in your class!',
+  'roster.searching': 'Searching…',
+
   'review.title': 'Review',
   'review.pass': 'Pass',
   'review.fail': 'Needs work',

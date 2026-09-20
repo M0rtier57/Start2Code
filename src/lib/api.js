@@ -206,6 +206,32 @@ export async function removeStudent(classId, studentId) {
   return leaveClass(classId, studentId)
 }
 
+/**
+ * Look a child up by name or email, to add them to a class by hand.
+ *
+ * Goes through a SECURITY DEFINER function rather than a plain select: a
+ * teacher may only read the profiles of children they already teach, and this
+ * is exactly the case where they need to find one they do not.
+ */
+export async function searchStudents(query) {
+  const q = (query ?? '').trim()
+  if (q.length < 2) return []
+
+  const { data, error } = await supabase.rpc('search_students', { q })
+  if (error) throw new Error(error.message)
+  return data ?? []
+}
+
+/** Put an existing child in a class. Already a member is not an error. */
+export async function addStudentToClass(classId, studentId) {
+  const { error } = await supabase
+    .from('class_members')
+    .insert({ class_id: classId, student_id: studentId })
+
+  // 23505 = unique violation, i.e. they were already in this class.
+  if (error && error.code !== '23505') throw new Error(error.message)
+}
+
 /** Roster for one class, with each student's profile attached. */
 export async function listClassMembers(classId) {
   const rows = unwrap(

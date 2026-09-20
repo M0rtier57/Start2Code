@@ -9,7 +9,8 @@ import { Avatar, Empty, KindBadge, LoadingScreen, Modal, ProgressBar, timeAgo, u
 import { useAuth } from '../lib/AuthContext'
 import {
   archiveClass, createClass, deleteClass, downloadScratchFile, listActivityFor,
-  listClassMembers, listMyClasses, listProgressFor, listProjectsFor, listReviewsFor, removeStudent
+  addStudentToClass, listClassMembers, listMyClasses, listProgressFor, listProjectsFor,
+  listReviewsFor, removeStudent, searchStudents
 } from '../lib/api'
 import { downloadBlob, downloadText, toFilename } from '../lib/download'
 import { useCurriculum } from '../lib/CurriculumContext'
@@ -129,7 +130,8 @@ function ClassDetail({ klass, onChanged }) {
   const [inspect, setInspect] = useState(null)
   const [reviews, setReviews] = useState(new Map())
   const [projectFilter, setProjectFilter] = useState('waiting')
-  const [addOpen, setAddOpen] = useState(false)
+  const [addOpen, setAddOpen] = useState(false)               // create new accounts
+  const [addExistingOpen, setAddExistingOpen] = useState(false) // add an existing child
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -225,6 +227,9 @@ function ClassDetail({ klass, onChanged }) {
             toast.success('Code copied')
           }}>Copy</button>
           <button className="btn btn-sm" onClick={() => setAddOpen(true)}>{t('bulk.button')}</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => setAddExistingOpen(true)}>
+            {t('roster.add')}
+          </button>
           <button className="btn btn-ghost btn-sm" onClick={exportCsv}>⬇ CSV</button>
           <button className="btn btn-ghost btn-sm" onClick={async () => {
             await archiveClass(klass.id, !klass.archived); onChanged()
@@ -419,6 +424,15 @@ function ClassDetail({ klass, onChanged }) {
         </>
       )}
 
+      {addExistingOpen && (
+        <AddStudentModal
+          klass={klass}
+          existing={students}
+          onClose={() => setAddExistingOpen(false)}
+          onAdded={load}
+        />
+      )}
+
       {inspect && (
         <ProjectInspector
           {...inspect}
@@ -502,6 +516,115 @@ function LessonMatrix({ students, byStudent }) {
       </div>
       <p className="tiny muted mt-2">✅ finished · 🟡 started · · not opened yet — hover a cell for details.</p>
     </div>
+  )
+}
+
+/**
+ * Put a child who already has an account straight into a class, without the
+ * join code — for the ones who lost it, mistyped it, or were added late.
+ */
+function AddStudentModal({ klass, existing, onClose, onAdded }) {
+  const toast = useToast()
+  const { t } = useI18n()
+
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState([])
+  const [searching, setSearching] = useState(false)
+  const [busyId, setBusyId] = useState(null)
+  const [added, setAdded] = useState(() => new Set())
+
+  const alreadyIn = new Set(existing.map((student) => student.id))
+
+  // Search as they type, after a short pause so every keystroke is not a query.
+  useEffect(() => {
+    const q = query.trim()
+    if (q.length < 2) { setResults([]); return undefined }
+
+    setSearching(true)
+    const timer = setTimeout(() => {
+      searchStudents(q)
+        .then(setResults)
+        .catch((error) => toast.error(error.message))
+        .finally(() => setSearching(false))
+    }, 350)
+
+    return () => { clearTimeout(timer); setSearching(false) }
+  }, [query, toast])
+
+  const add = async (student) => {
+    setBusyId(student.id)
+    try {
+      await addStudentToClass(klass.id, student.id)
+      setAdded((current) => new Set(current).add(student.id))
+      toast.success(t('roster.added', { name: student.full_name || student.email }))
+      onAdded?.()
+    } catch (error) {
+      toast.error(error.message)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const tooShort = query.trim().length < 2
+
+  return (
+    <Modal title={t('roster.addTitle', { class: klass.name })} onClose={onClose}>
+      <p className="small muted">{t('roster.addSub')}</p>
+
+      <label className="field mt-4">
+        {t('roster.searchLabel')}
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={t('roster.searchPlaceholder')}
+          autoFocus
+        />
+      </label>
+
+      {tooShort && <p className="tiny muted mt-2">{t('roster.searchHint')}</p>}
+      {searching && !tooShort && <p className="tiny muted mt-2">{t('roster.searching')}</p>}
+
+      {!tooShort && !searching && results.length === 0 && (
+        <div className="mt-4">
+          <p className="small">{t('roster.noResults')}</p>
+          <p className="tiny muted mt-2">{t('roster.noAccountYet')}</p>
+        </div>
+      )}
+
+      <div className="col mt-4" style={{ gap: 8 }}>
+        {results.map((student) => {
+          const isMember = alreadyIn.has(student.id) || added.has(student.id)
+          return (
+            <div
+              key={student.id}
+              className="row"
+              style={{
+                gap: 12, padding: '10px 14px',
+                border: '2px solid var(--line)', borderRadius: 'var(--radius-sm)'
+              }}
+            >
+              <Avatar name={student.full_name || student.email} />
+              <div className="grow">
+                <div style={{ fontWeight: 700 }}>{student.full_name || '—'}</div>
+                <div className="tiny muted">{student.email}</div>
+              </div>
+
+              {isMember ? (
+                <span className="badge badge-ok">{t('roster.alreadyIn')}</span>
+              ) : (
+                <button
+                  className="btn btn-sm"
+                  onClick={() => add(student)}
+                  disabled={busyId === student.id}
+                >
+                  {t('roster.addButton')}
+                </button>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </Modal>
   )
 }
 
