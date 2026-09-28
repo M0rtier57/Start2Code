@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import LessonsManager from '../components/LessonsManager'
+import MergeAccountsModal from '../components/MergeAccountsModal'
 import { Avatar, LoadingScreen, timeAgo, useToast } from '../components/ui'
 import { useAuth } from '../lib/AuthContext'
 import { listAllProfiles, listMyClasses, setUserRole } from '../lib/api'
 import { useCurriculum } from '../lib/CurriculumContext'
+import { useI18n } from '../i18n'
 
 /**
  * Admin-only view: who is on the platform and what they are allowed to do.
@@ -15,6 +17,7 @@ export default function AdminPanel() {
   const { user } = useAuth()
   const toast = useToast()
   const { tracks } = useCurriculum()
+  const { t } = useI18n()
 
   const [people, setPeople] = useState([])
   const [classes, setClasses] = useState([])
@@ -22,6 +25,7 @@ export default function AdminPanel() {
   const [filter, setFilter] = useState('')
   const [roleFilter, setRoleFilter] = useState('all')
   const [section, setSection] = useState('people')   // people | lessons
+  const [mergeOpen, setMergeOpen] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -98,6 +102,7 @@ export default function AdminPanel() {
           onChange={(e) => setFilter(e.target.value)}
           style={{ maxWidth: 320 }}
         />
+        <button className="btn" onClick={() => setMergeOpen(true)}>{t('merge.start')}</button>
         <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} style={{ maxWidth: 180 }}>
           <option value="all">All roles</option>
           <option value="student">Students</option>
@@ -146,6 +151,14 @@ export default function AdminPanel() {
       </div>
 
       {visible.length === 0 && <p className="muted center mt-4">Nobody matches that search.</p>}
+
+      {mergeOpen && (
+        <MergeAccountsModal
+          people={people}
+          onClose={() => setMergeOpen(false)}
+          onMerged={() => { setMergeOpen(false); load() }}
+        />
+      )}
       </>
       )}
     </div>

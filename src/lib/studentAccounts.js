@@ -163,11 +163,19 @@ async function createOne(auth, name, sharedPassword, classId) {
     if (alreadyTaken(data, error)) continue     // this Emma is not that Emma
     if (error) return { name, status: 'error', message: error.message }
 
-    // No session means Supabase wants the address confirmed, and this address
-    // can never confirm anything. Worth stopping over rather than quietly
-    // producing accounts that nobody can log in to.
+    // No session means Supabase wants the address confirmed — and this address
+    // can never confirm anything, because the domain belongs to nobody.
+    //
+    // Confirmation is on for real people (teachers, and children who sign up
+    // with their own address), so these internal accounts are confirmed here
+    // instead. The database function only touches that one domain.
     if (!data.session && !data.user?.email_confirmed_at) {
-      return { name, username, password: secret, status: 'unconfirmed' }
+      const { data: confirmed, error: confirmError } = await supabase
+        .rpc('confirm_student_account', { student: data.user.id })
+
+      if (confirmError || !confirmed) {
+        return { name, username, password: secret, status: 'unconfirmed' }
+      }
     }
 
     const joined = classId ? await addToClass(data.user.id, classId) : null

@@ -39,8 +39,13 @@ export default function Login() {
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          // The database trigger reads these when it creates the profile row.
-          options: { data: { full_name: fullName, role } }
+          options: {
+            // The database trigger reads these when it creates the profile row.
+            data: { full_name: fullName, role },
+            // Where the confirmation link lands. Without this Supabase uses the
+            // Site URL, which is easy to leave pointing at localhost.
+            emailRedirectTo: window.location.origin
+          }
         })
         if (error) throw error
 

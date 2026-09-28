@@ -476,6 +476,35 @@ export async function listAllProfiles() {
   )
 }
 
+/**
+ * What would move if these two accounts were joined? Shown before anything is
+ * touched, because a merge cannot be undone.
+ */
+export async function mergePreview(duplicateId, keepId) {
+  const { data, error } = await supabase.rpc('merge_preview', {
+    duplicate: duplicateId,
+    keep: keepId
+  })
+  if (error) throw new Error(error.message)
+  return data
+}
+
+/**
+ * Join two accounts: everything the duplicate owns moves to the kept account,
+ * and the duplicate is deleted. The whole thing is one transaction in the
+ * database, so a failure half way leaves nothing behind.
+ */
+export async function mergeAccounts({ duplicateId, keepId, name, email }) {
+  const { data, error } = await supabase.rpc('merge_accounts', {
+    duplicate: duplicateId,
+    keep: keepId,
+    new_name: name?.trim() || null,
+    new_email: email?.trim() || null
+  })
+  if (error) throw new Error(error.message)
+  return data
+}
+
 export async function setUserRole(userId, role) {
   return unwrap(await supabase.from('profiles').update({ role }).eq('id', userId).select().single())
 }

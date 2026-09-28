@@ -229,6 +229,47 @@ SECURITY DEFINER function, search_students(q), which:
 
 A child must already have an account; there is no way to create one for them.
 
+## Merging two accounts
+
+Children who forget a password tend to make a second account rather than ask.
+Admin -> People -> **Samenvoegen** joins them back together: pick the account
+that disappears and the one that is kept, see exactly what will move, choose
+which name and which login email survive, then confirm.
+
+Everything owned by the duplicate moves across: projects, lesson progress,
+class memberships, activity, and — if they were staff — their classes, lessons
+and reviews. The whole merge is one SQL function, so it is one transaction:
+either all of it happens or none of it does.
+
+Three things it has to get right:
+
+- **Progress collides.** lesson_progress is unique per (user, track, lesson),
+  so where both accounts worked on the same lesson only one row can survive.
+  The further-along one wins.
+- **Class membership collides**, on (class_id, student_id). The duplicate
+  membership is dropped.
+- **Scratch files do not move.** They live at `<owner-id>/<project-id>.sb3`
+  and SQL cannot move them between folders. Rather than leave a child unable to
+  open their own merged work, the storage read policy now also allows whoever
+  owns the project row, wherever the file happens to sit.
+
+Only an admin can merge, enforced inside the function rather than by hiding a
+button.
+
+## Email confirmation
+
+Sign-up confirmation is on for real people. Two things make that work:
+
+- `emailRedirectTo` is set on sign-up, so the link in the mail returns to the
+  site the child actually used rather than whatever Site URL happens to say.
+- Bulk-created student accounts live on `leerling.start2code.app`, a domain
+  nobody owns, so a confirmation mail could never be answered. They are
+  confirmed by `confirm_student_account()` instead, which only ever touches
+  that one domain — a teacher cannot use it to confirm a real address.
+
+The **sender address** is not set in this code: it is Supabase
+Authentication -> SMTP Settings, plus SPF/DKIM records on the sending domain.
+
 ## Roles
 
 | Role | Can do |
