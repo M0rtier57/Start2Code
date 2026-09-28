@@ -44,6 +44,10 @@ export const en = {
   'login.blockedTitle': 'This network will not let us through',
   'login.blockedBody': 'The website itself loaded, but the database cannot be reached. That is nearly always a filter on the network — often at a school or on a guest network. Try another network (your phone as a hotspot, for instance), or ask the administrator to allow this address:',
   'login.blockedHost': 'Address to allow:',
+  'login.errorUnconfirmed': 'This account has not been confirmed yet. Check your email — and your spam folder.',
+  'login.unconfirmedHelp': 'No confirmation email? We can send it again to the address above.',
+  'login.resend': 'Send the confirmation email again',
+  'login.confirmationResent': 'Sent! Check your email, including the spam folder.',
   'login.notConnected': 'Not connected to Supabase',
 
   /* --- navigation -------------------------------------------------------- */

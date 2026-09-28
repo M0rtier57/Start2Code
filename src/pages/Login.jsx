@@ -17,6 +17,7 @@ export default function Login() {
   const [role, setRole] = useState('student')
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState('')
+  const [unconfirmed, setUnconfirmed] = useState(false)
   const [blocked, setBlocked] = useState('')   // '' | 'offline' | 'blocked'
 
   const submit = async (event) => {
@@ -62,8 +63,28 @@ export default function Login() {
         const why = await diagnose()
         setBlocked(why === 'offline' ? 'offline' : 'blocked')
       } else {
+        setUnconfirmed(/email not confirmed|email_not_confirmed/i.test(error.message))
         toast.error(friendlyAuthError(error.message, t))
       }
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** Send the confirmation mail again, for a link that never arrived. */
+  const resend = async () => {
+    setBusy(true)
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+        options: { emailRedirectTo: window.location.origin }
+      })
+      if (error) throw error
+      setNotice(t('login.confirmationResent'))
+      setUnconfirmed(false)
+    } catch (error) {
+      toast.error(error.message)
     } finally {
       setBusy(false)
     }
@@ -164,6 +185,15 @@ export default function Login() {
           </form>
         </div>
 
+        {unconfirmed && (
+          <div className="card card-flat mt-4" style={{ background: 'var(--zon-wash)', borderColor: '#f7d6a2' }}>
+            <p className="small">{t('login.unconfirmedHelp')}</p>
+            <button className="btn btn-block mt-4" onClick={resend} disabled={busy || !email}>
+              {t('login.resend')}
+            </button>
+          </div>
+        )}
+
         <p className="tiny muted center mt-4">
           {t('login.joinHint')}
         </p>
@@ -179,6 +209,10 @@ export default function Login() {
 }
 
 function friendlyAuthError(message, t) {
+  // Supabase says "Email not confirmed" for an account that never clicked the
+  // link. Reporting that as a wrong password sends people hunting for a
+  // password that is perfectly correct.
+  if (/email not confirmed|email_not_confirmed/i.test(message)) return t('login.errorUnconfirmed')
   if (/invalid login credentials/i.test(message)) return t('login.errorCredentials')
   if (/already registered/i.test(message)) return t('login.errorExists')
   if (/password should be/i.test(message)) return t('login.errorPassword')

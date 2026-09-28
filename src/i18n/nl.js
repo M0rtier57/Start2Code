@@ -49,6 +49,10 @@ export const nl = {
   'login.blockedTitle': 'Dit netwerk laat ons er niet door',
   'login.blockedBody': 'De website zelf is geladen, maar de database is onbereikbaar. Dat komt bijna altijd door een filter op het netwerk — vaak op school of op een gastnetwerk. Probeer een ander netwerk (bijvoorbeeld je telefoon als hotspot), of vraag de beheerder om dit adres toe te laten:',
   'login.blockedHost': 'Adres om toe te laten:',
+  'login.errorUnconfirmed': 'Dit account is nog niet bevestigd. Kijk in je e-mail — ook in de spam.',
+  'login.unconfirmedHelp': 'Geen bevestigingsmail gekregen? We sturen hem opnieuw naar het adres hierboven.',
+  'login.resend': 'Stuur de bevestigingsmail opnieuw',
+  'login.confirmationResent': 'Verstuurd! Kijk in je e-mail, ook in de spammap.',
   'login.notConnected': 'Niet verbonden met Supabase',
 
   /* --- navigatie --------------------------------------------------------- */
