@@ -75,7 +75,9 @@ export default function LessonPanel({ track, lesson, review, onPickLesson, onClo
       <aside className="lesson-panel">
         <div className="head row-between">
           <strong>{t('lesson.freePlay')}</strong>
-          {onClose && <button className="btn btn-quiet btn-sm" onClick={onClose}>✕</button>}
+          {onClose && (
+            <button className="btn btn-quiet btn-sm" onClick={onClose} aria-label={t('lesson.hide')}>✕</button>
+          )}
         </div>
         <div className="body">
           <ReviewSummary review={review} />

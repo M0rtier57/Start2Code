@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="nl">
   <head>
     <meta charset="UTF-8" />
     <!-- Browsers fall through to the next icon if the first is missing. -->
@@ -10,13 +10,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Start2Code — learn to code</title>
     <meta name="description" content="Learn to code with Scratch blocks and Python, and keep your projects safe in one place." />
-    <meta name="theme-color" content="#4c6ef5" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
+    <meta name="theme-color" content="#15806e" />
+    <!--
+      The typefaces are served from this domain, not from a font service.
+      Loading a font from fonts.gstatic.com hands every visitor's IP address to
+      a third party before they have clicked anything, and the people looking at
+      this site are children.
+
+      Run "npm run fonts" to fetch them into public/fonts. Until that has been
+      run the file below is simply missing, the browser shrugs, and the system
+      typeface in the stack takes over — nothing breaks.
+    -->
+    <link rel="stylesheet" href="/fonts/fonts.css" />
   </head>
   <body>
     <div id="root"></div>

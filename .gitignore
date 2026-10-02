@@ -23,3 +23,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Fetched by "npm run fonts" (SIL OFL, see src/content/legal).
+public/fonts/

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 
 /* ------------------------------------------------------------------ toasts */
 
@@ -40,24 +40,75 @@ export function useToast() {
 /* ------------------------------------------------------------------- modal */
 
 export function Modal({ title, children, onClose, wide = false, footer = null }) {
+  const panel = useRef(null)
+  const openedFrom = useRef(null)
+
   useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose?.() }
+    // Where focus was before the dialog opened, so it can be put back. Losing
+    // your place in the page is disorienting with a mouse and disabling
+    // without one.
+    openedFrom.current = document.activeElement
+
+    const focusable = () => panel.current?.querySelectorAll(
+      'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'
+    ) ?? []
+
+    // Start inside the dialog rather than wherever the page happened to be.
+    const first = focusable()[0]
+    if (first) first.focus()
+    else panel.current?.focus()
+
+    const onKey = (event) => {
+      if (event.key === 'Escape') { onClose?.(); return }
+      if (event.key !== 'Tab') return
+
+      // Tab must not wander off into the page behind the dialog: a screen
+      // reader user would be reading content they cannot see or reach.
+      const items = [...focusable()]
+      if (items.length === 0) return
+
+      const edge = event.shiftKey ? items[0] : items[items.length - 1]
+      if (document.activeElement === edge) {
+        event.preventDefault()
+        ;(event.shiftKey ? items[items.length - 1] : items[0]).focus()
+      }
+    }
+
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      openedFrom.current?.focus?.()
+    }
   }, [onClose])
 
   return (
     <div className="modal-scrim" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose?.() }}>
-      <div className={`modal ${wide ? 'modal-wide' : ''}`} role="dialog" aria-modal="true" aria-label={title}>
+      <div
+        ref={panel}
+        tabIndex={-1}
+        className={`modal ${wide ? 'modal-wide' : ''}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+      >
         <div className="row-between mt-0">
           <h2>{title}</h2>
-          <button className="btn btn-quiet btn-sm" onClick={onClose} aria-label="Close">✕</button>
+          <button className="btn btn-quiet btn-sm" onClick={onClose} aria-label={closeLabel()}>✕</button>
         </div>
         <div className="mt-4">{children}</div>
         {footer && <div className="row mt-4" style={{ justifyContent: 'flex-end' }}>{footer}</div>}
       </div>
     </div>
   )
+}
+
+/** "Close", in the language the site is set to. */
+function closeLabel() {
+  try {
+    return localStorage.getItem('s2c:lang') === 'en' ? 'Close' : 'Sluiten'
+  } catch {
+    return 'Sluiten'
+  }
 }
 
 /* ------------------------------------------------------------------ pieces */

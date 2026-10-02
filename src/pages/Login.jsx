@@ -1,9 +1,12 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase, isConfigured } from '../lib/supabaseClient'
 import { toLoginEmail } from '../lib/studentAccounts'
 import { diagnose, isNetworkError, supabaseHost } from '../lib/connectivity'
 import { canReceiveMail, resetRedirectUrl } from '../lib/passwordReset'
+import { ALLOW_STUDENT_SELF_SIGNUP } from '../lib/site'
 import Logo from '../components/Logo'
+import SiteFooter from '../components/SiteFooter'
 import LanguagePicker from '../components/LanguagePicker'
 import { useToast } from '../components/ui'
 import { useI18n } from '../i18n'
@@ -15,7 +18,8 @@ export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
-  const [role, setRole] = useState('student')
+  const [role, setRole] = useState(ALLOW_STUDENT_SELF_SIGNUP ? 'student' : 'teacher')
+  const [agreed, setAgreed] = useState(false)
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState('')
   const [unconfirmed, setUnconfirmed] = useState(false)
@@ -65,6 +69,8 @@ export default function Login() {
         if (error) throw error
         // The auth listener in AuthProvider takes it from here.
       } else {
+        if (!agreed) throw new Error('terms_not_agreed')
+
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -231,7 +237,7 @@ export default function Login() {
               </label>
             )}
 
-            {mode === 'signup' && (
+            {mode === 'signup' && ALLOW_STUDENT_SELF_SIGNUP && (
               <label className="field">
                 {t('login.iAm')}
                 <select value={role} onChange={(e) => setRole(e.target.value)}>
@@ -239,6 +245,29 @@ export default function Login() {
                   <option value="teacher">{t('login.teacher')}</option>
                 </select>
               </label>
+            )}
+
+            {mode === 'signup' && (
+              <>
+                {!ALLOW_STUDENT_SELF_SIGNUP && (
+                  <p className="tiny muted">{t('login.adultsOnly')}</p>
+                )}
+
+                <label className="consent">
+                  <input
+                    type="checkbox"
+                    checked={agreed}
+                    onChange={(event) => setAgreed(event.target.checked)}
+                    required
+                  />
+                  <span className="small">
+                    {t('login.agreePrefix')}{' '}
+                    <Link to="/voorwaarden" target="_blank" rel="noreferrer">{t('login.agreeTerms')}</Link>
+                    {' '}{t('common.and')}{' '}
+                    <Link to="/privacy" target="_blank" rel="noreferrer">{t('login.agreePrivacy')}</Link>.
+                  </span>
+                </label>
+              </>
             )}
 
             <button className="btn btn-lg btn-block" type="submit" disabled={busy || !isConfigured}>
@@ -282,12 +311,15 @@ export default function Login() {
         <div className="row mt-4" style={{ justifyContent: 'center' }}>
           <LanguagePicker compact />
         </div>
+
+        <SiteFooter />
       </div>
     </div>
   )
 }
 
 function friendlyAuthError(message, t) {
+  if (message === 'terms_not_agreed') return t('login.errorTerms')
   // Supabase answers 500 "Error sending confirmation email" when its SMTP
   // settings are wrong. The account is usually created anyway, so the useful
   // thing to say is that the mail failed, not that the sign-up did.

@@ -508,3 +508,58 @@ export async function mergeAccounts({ duplicateId, keepId, name, email }) {
 export async function setUserRole(userId, role) {
   return unwrap(await supabase.from('profiles').update({ role }).eq('id', userId).select().single())
 }
+
+/* ------------------------------------------------------- my data (GDPR) */
+
+/**
+ * Everything we hold about one person, in one file.
+ *
+ * Deliberately built from the same policies the rest of the app runs under:
+ * row level security means this can only ever return the caller's own rows, so
+ * there is no way to turn it into a tool for reading somebody else's work.
+ */
+export async function exportMyData(userId) {
+  const [profile, projects, progress, memberships, activity] = await Promise.all([
+    supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
+    supabase.from('projects').select('*').eq('owner_id', userId),
+    supabase.from('lesson_progress').select('*').eq('user_id', userId),
+    supabase.from('class_members').select('class_id, joined_at, classes (name)').eq('student_id', userId),
+    supabase.from('activity_events').select('kind, detail, created_at').eq('user_id', userId)
+  ])
+
+  const mine = (projects.data ?? []).map((project) => project.id)
+  const reviews = mine.length
+    ? await supabase.from('reviews').select('*').in('project_id', mine)
+    : { data: [] }
+
+  return {
+    exported_at: new Date().toISOString(),
+    about: 'Alles wat Start2Code over dit account bewaart. / Everything Start2Code holds about this account.',
+    profile: profile.data ?? null,
+    projects: projects.data ?? [],
+    lesson_progress: progress.data ?? [],
+    classes: memberships.data ?? [],
+    reviews: reviews.data ?? [],
+    activity: activity.data ?? []
+  }
+}
+
+/**
+ * Delete the signed-in account for good. The database decides who may do this
+ * and what goes with it; see supabase/data-deletion.sql.
+ */
+export async function deleteMyAccount() {
+  const { error } = await supabase.rpc('delete_my_account')
+  if (error) {
+    // The one refusal worth translating: a teacher still owns live classes.
+    if (/still_teaching/.test(error.message)) throw new Error('still_teaching')
+    throw new Error(error.message)
+  }
+}
+
+/** A teacher removing a pupil's account at the school's or a parent's request. */
+export async function deleteStudentAccount(studentId) {
+  const { data, error } = await supabase.rpc('delete_student_account', { student: studentId })
+  if (error) throw new Error(error.message)
+  return data
+}

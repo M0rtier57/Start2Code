@@ -13,8 +13,17 @@
   --brand-soft: #2d3a45;
   --brand-deep: #171f26;
 
-  --accent:      #26af98;  /* teal - the primary action colour */
+  --accent:      #26af98;  /* teal - decoration, borders, washes */
   --accent-deep: #1b8c79;
+
+  /* Button fills. Darker than the decorative hue on purpose: white text on
+     --accent is 2.74:1, and small bold text needs 4.5:1 to be readable by
+     someone who is not twelve and does not have perfect eyes. Measured, not
+     guessed — see the note at the bottom of this file. */
+  --accent-btn:       #15806e;   /* 4.60:1 with white */
+  --accent-btn-hover: #0f6a5b;   /* 6.07:1 */
+  --koraal-btn:       #c2534c;   /* 4.53:1 */
+  --koraal-btn-hover: #a8443e;   /* 5.73:1 */
   --accent-ink:  #0f7a69;
   --accent-wash: #e4f5f1;
 
@@ -37,7 +46,7 @@
 
   --ink:       #212b33;
   --ink-soft:  #55636e;
-  --ink-faint: #808d98;
+  --ink-faint: #6d7881;   /* 4.51:1 on white; was #808d98 at 3.40:1 */
   --line:      #e3e8ec;
   --surface:   #ffffff;
   --page:      #f5f7f9;
@@ -96,6 +105,47 @@ p  { margin: 0; line-height: 1.6; }
 a  { color: var(--accent-ink); text-decoration: none; font-weight: 600; }
 a:hover { text-decoration: underline; }
 
+/* Anything focusable that has no rule of its own still has to show where it
+   is. Keyboard users are not a minority here: a child with a tremor, a school
+   laptop with a broken trackpad, anyone who simply prefers the keyboard. */
+:focus-visible {
+  outline: 3px solid var(--brand);
+  outline-offset: 2px;
+}
+
+/* The first thing in the tab order, invisible until it matters. */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 10px;
+  z-index: 200;
+  background: var(--surface);
+  color: var(--ink);
+  padding: 12px 18px;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--brand);
+  font-weight: 700;
+  box-shadow: var(--shadow-lg);
+}
+.skip-link:focus {
+  left: 16px;
+  text-decoration: none;
+}
+
+/* Everything here lifts, slides and springs. For somebody whose balance or
+   attention that disturbs, the operating system already carries the answer;
+   all this does is listen to it. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .tile:hover { transform: none; }
+  .btn:hover:not(:disabled) { transform: none; }
+}
+
 /* --- Layout helpers ------------------------------------------------------ */
 .page      { max-width: 1180px; margin: 0 auto; padding: 26px 24px 80px; }
 .row       { display: flex; align-items: center; gap: 10px; }
@@ -138,7 +188,7 @@ a:hover { text-decoration: underline; }
 }
 .tile:hover  { transform: translateY(-5px) scale(1.015); box-shadow: var(--shadow-lg); }
 .tile:active { transform: translateY(-1px) scale(0.995); }
-.tile:focus-visible { outline: 4px solid var(--accent); outline-offset: 3px; }
+.tile:focus-visible { outline: 4px solid var(--brand); outline-offset: 3px; }
 
 /* A colour per activity, so a child recognises it before reading it. */
 .tile-zon          { border-color: #f7d6a2; background: linear-gradient(170deg, var(--zon-wash), #fff 62%); }
@@ -165,16 +215,20 @@ a:hover { text-decoration: underline; }
   padding: 11px 20px;
   border-radius: 999px;
   border: 2px solid transparent;
-  background: var(--accent); color: #fff;
+  background: var(--accent-btn); color: #fff;
   font: inherit; font-weight: 700; font-size: 0.95rem;
   cursor: pointer; white-space: nowrap;
   box-shadow: var(--glow);
   transition: transform 0.12s cubic-bezier(.34, 1.56, .64, 1), background 0.12s ease, box-shadow 0.12s ease;
 }
-.btn:hover:not(:disabled)  { background: var(--accent-deep); transform: translateY(-2px); }
+.btn:hover:not(:disabled)  { background: var(--accent-btn-hover); transform: translateY(-2px); }
 .btn:active:not(:disabled) { transform: translateY(1px); }
-.btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
-.btn:focus-visible { outline: 4px solid #a9e0d5; outline-offset: 2px; }
+.btn:disabled { opacity: 0.6; cursor: not-allowed; box-shadow: none; }
+.btn:focus-visible {
+  outline: 3px solid var(--brand);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 6px #ffffffcc;
+}
 
 .btn-ghost {
   background: var(--surface); color: var(--ink);
@@ -188,10 +242,10 @@ a:hover { text-decoration: underline; }
 }
 .btn-quiet:hover:not(:disabled) { background: #eceff2; color: var(--ink); }
 
-.btn-ok     { background: var(--accent); }
-.btn-ok:hover:not(:disabled) { background: var(--accent-deep); }
-.btn-danger { background: var(--koraal); box-shadow: 0 6px 18px rgba(242, 104, 95, 0.35); }
-.btn-danger:hover:not(:disabled) { background: #e4534a; }
+.btn-ok     { background: var(--accent-btn); }
+.btn-ok:hover:not(:disabled) { background: var(--accent-btn-hover); }
+.btn-danger { background: var(--koraal-btn); box-shadow: 0 6px 18px rgba(242, 104, 95, 0.35); }
+.btn-danger:hover:not(:disabled) { background: var(--koraal-btn-hover); }
 
 .btn-sm { padding: 7px 14px; font-size: 0.86rem; }
 .btn-lg { padding: 15px 30px; font-size: 1.08rem; }
@@ -310,6 +364,56 @@ input:focus, select:focus, textarea:focus {
 .table tbody tr:hover { background: var(--accent-wash); }
 .table td.num { text-align: center; }
 .table-scroll { overflow-x: auto; }
+
+/* --- Site footer --------------------------------------------------------- */
+.site-footer {
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+  margin-top: 40px;
+  padding: 26px 24px 34px;
+}
+.site-footer-inner { max-width: 1180px; margin: 0 auto; text-align: center; }
+.site-footer-links {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 22px;
+  font-size: 0.86rem;
+}
+.site-footer-links a { color: var(--ink-soft); font-weight: 600; }
+.site-footer-links a:hover { color: var(--accent-ink); }
+
+/* On the login screen the footer sits inside the card column, so it should not
+   carry its own border and background there. */
+.login-footer .site-footer { border: 0; background: transparent; margin-top: 26px; padding: 0; }
+
+/* --- Storage notice ------------------------------------------------------ */
+.cookie-notice {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 150;
+  background: var(--surface);
+  border-top: 2px solid var(--line);
+  box-shadow: 0 -8px 30px #212b3322;
+  padding: 16px 20px calc(16px + env(safe-area-inset-bottom));
+}
+.cookie-notice-inner {
+  max-width: 1000px; margin: 0 auto;
+  display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+}
+.cookie-notice-inner > div { flex: 1; min-width: 260px; }
+
+/* --- Agreement checkbox -------------------------------------------------- */
+.consent {
+  display: flex; align-items: flex-start; gap: 11px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+.consent input {
+  width: 22px; height: 22px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  accent-color: var(--accent-btn);
+  cursor: pointer;
+}
 
 /* --- Toast --------------------------------------------------------------- */
 .toast-stack {
@@ -595,3 +699,20 @@ input:focus, select:focus, textarea:focus {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* =============================================================================
+   Contrast, measured
+   -----------------------------------------------------------------------------
+   Every text/background pair in this file was checked against WCAG 2.1 AA
+   (4.5:1 for normal text, 3:1 for large text and for the edges of controls).
+   Four pairs failed and were changed:
+
+     white on --accent  #26af98   2.74  ->  --accent-btn  #15806e   4.60
+     white on #e4534a (btn hover) 3.60  ->  #a8443e                 5.73
+     white on --koraal  #f2685f   3.03  ->  --koraal-btn  #c2534c   4.53
+     --ink-faint #808d98 on white 3.40  ->  #6d7881                 4.51
+
+   Changing a colour here means re-checking it. The decorative hues (--accent,
+   --koraal, --zon) are deliberately left bright: they carry borders, washes and
+   backgrounds, never small text on their own.
+   ========================================================================== */

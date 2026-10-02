@@ -1,16 +1,21 @@
 import { NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 
+import CookieNotice from './components/CookieNotice'
 import LanguagePicker from './components/LanguagePicker'
 import Logo from './components/Logo'
+import SiteFooter from './components/SiteFooter'
 import { Avatar, LoadingScreen } from './components/ui'
 import { useAuth } from './lib/AuthContext'
+import { LEGAL_PATHS } from './content/legal'
 import { RESET_PATH } from './lib/passwordReset'
 import { isConfigured } from './lib/supabaseClient'
 import { useI18n } from './i18n'
 
 import AdminPanel from './pages/AdminPanel'
 import Dashboard from './pages/Dashboard'
+import Legal from './pages/Legal'
 import Login from './pages/Login'
+import MyData from './pages/MyData'
 import NewPassword from './pages/NewPassword'
 import PythonWorkspace from './pages/PythonWorkspace'
 import ScratchWorkspace from './pages/ScratchWorkspace'
@@ -29,9 +34,10 @@ export default function App() {
   // decided before the session check — otherwise the link would drop straight
   // into the dashboard and the forgotten password would stay as it was.
   if (pathname === RESET_PATH) return <NewPassword />
+  if (LEGAL_PATHS.includes(pathname)) return <><Legal /><CookieNotice /></>
 
   if (loading) return <LoadingScreen label={t('common.loading')} />
-  if (!session) return <Login />
+  if (!session) return <><Login /><CookieNotice /></>
 
   return (
     <Routes>
@@ -41,6 +47,7 @@ export default function App() {
 
       <Route element={<Shell />}>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/mijn-gegevens" element={<MyData />} />
         <Route path="/classes" element={<RequireRole teacher><TeacherDashboard /></RequireRole>} />
         <Route path="/admin" element={<RequireRole admin><AdminPanel /></RequireRole>} />
         <Route path="*" element={<Navigate to="/" replace />} />
@@ -56,6 +63,8 @@ function Shell() {
 
   return (
     <>
+      <a className="skip-link" href="#main">{t('nav.skipToContent')}</a>
+
       <header className="app-header">
         <div className="app-header-inner">
           <button
@@ -85,6 +94,12 @@ function Shell() {
           <span style={{ flex: 1 }} />
 
           <div className="row">
+            <NavLink
+              to="/mijn-gegevens"
+              className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+            >
+              {t('nav.myData')}
+            </NavLink>
             <Avatar name={displayName} />
             <div className="tiny" style={{ lineHeight: 1.3 }}>
               <div style={{ fontWeight: 650 }}>{displayName}</div>
@@ -96,7 +111,10 @@ function Shell() {
         </div>
       </header>
 
-      <main><Outlet /></main>
+      <main id="main"><Outlet /></main>
+
+      <SiteFooter />
+      <CookieNotice />
     </>
   )
 }
