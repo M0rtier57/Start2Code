@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { supabase, isConfigured } from '../lib/supabaseClient'
 import { toLoginEmail } from '../lib/studentAccounts'
 import { diagnose, isNetworkError, supabaseHost } from '../lib/connectivity'
+import { canReceiveMail, resetRedirectUrl } from '../lib/passwordReset'
 import Logo from '../components/Logo'
 import LanguagePicker from '../components/LanguagePicker'
 import { useToast } from '../components/ui'
@@ -10,7 +11,7 @@ import { useI18n } from '../i18n'
 export default function Login() {
   const toast = useToast()
   const { t } = useI18n()
-  const [mode, setMode] = useState('login')      // login | signup
+  const [mode, setMode] = useState('login')      // login | signup | reset
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
@@ -19,15 +20,42 @@ export default function Login() {
   const [notice, setNotice] = useState('')
   const [unconfirmed, setUnconfirmed] = useState(false)
   const [blocked, setBlocked] = useState('')   // '' | 'offline' | 'blocked'
+  const [studentReset, setStudentReset] = useState(false)
+
+  /** Moving between the three forms clears whatever the last attempt said. */
+  const go = (next) => {
+    setMode(next)
+    setNotice('')
+    setBlocked('')
+    setUnconfirmed(false)
+    setStudentReset(false)
+  }
 
   const submit = async (event) => {
     event.preventDefault()
     setBusy(true)
     setNotice('')
     setBlocked('')
+    setStudentReset(false)
 
     try {
-      if (mode === 'login') {
+      if (mode === 'reset') {
+        // A child's login name is not an address, and the address the app makes
+        // out of it belongs to nobody. Mailing it would look like it worked.
+        if (!canReceiveMail(email)) {
+          setStudentReset(true)
+          return
+        }
+
+        const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+          redirectTo: resetRedirectUrl()
+        })
+        if (error) throw error
+
+        // The same answer whether or not that address has an account: this form
+        // must not tell a stranger who is registered here.
+        setNotice(t('reset.sent'))
+      } else if (mode === 'login') {
         // A child types their first name; a teacher types an address. Both
         // arrive here, and only Supabase needs to know the difference.
         const { error } = await supabase.auth.signInWithPassword({
@@ -122,12 +150,30 @@ export default function Login() {
             </div>
           )}
 
-          <div className="tabs">
-            <button className={`tab ${mode === 'login' ? 'active' : ''}`} onClick={() => setMode('login')}>{t('login.title')}</button>
-            <button className={`tab ${mode === 'signup' ? 'active' : ''}`} onClick={() => setMode('signup')}>{t('login.signup')}</button>
-          </div>
+          {mode === 'reset' ? (
+            <>
+              <h2 style={{ margin: '0 0 6px' }}>{t('reset.title')}</h2>
+              <p className="small muted">{t('reset.intro')}</p>
+            </>
+          ) : (
+            <div className="tabs">
+              <button className={`tab ${mode === 'login' ? 'active' : ''}`} onClick={() => go('login')}>{t('login.title')}</button>
+              <button className={`tab ${mode === 'signup' ? 'active' : ''}`} onClick={() => go('signup')}>{t('login.signup')}</button>
+            </div>
+          )}
 
           {notice && <p className="small mt-2" style={{ color: 'var(--ok)' }}>{notice}</p>}
+
+          {studentReset && (
+            <div
+              className="card card-flat mt-2"
+              style={{ background: 'var(--zon-wash)', borderColor: '#f7d6a2' }}
+              role="alert"
+            >
+              <strong className="small">{t('reset.studentTitle')}</strong>
+              <p className="tiny mt-2">{t('reset.studentBody')}</p>
+            </div>
+          )}
 
           {blocked && (
             <div
@@ -158,27 +204,32 @@ export default function Login() {
             )}
 
             <label className="field">
-              {mode === 'login' ? t('login.emailOrName') : t('login.email')}
+              {mode === 'signup' ? t('login.email') : t('login.emailOrName')}
               <input
-                type={mode === 'login' ? 'text' : 'email'}
+                /* Text, not email, outside sign-up: a child types a first name,
+                   and browser validation would reject it before the form has a
+                   chance to explain who can help them. */
+                type={mode === 'signup' ? 'email' : 'text'}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder={mode === 'login' ? t('login.emailOrNamePlaceholder') : t('login.emailPlaceholder')}
+                placeholder={mode === 'signup' ? t('login.emailPlaceholder') : t('login.emailOrNamePlaceholder')}
                 required
-                autoComplete={mode === 'login' ? 'username' : 'email'}
+                autoComplete={mode === 'signup' ? 'email' : 'username'}
                 autoCapitalize="none"
                 spellCheck={false}
               />
             </label>
 
-            <label className="field">
-              {t('login.password')}
-              <input
-                type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-                placeholder={t('login.passwordPlaceholder')} required minLength={6}
-                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-              />
-            </label>
+            {mode !== 'reset' && (
+              <label className="field">
+                {t('login.password')}
+                <input
+                  type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+                  placeholder={t('login.passwordPlaceholder')} required minLength={6}
+                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                />
+              </label>
+            )}
 
             {mode === 'signup' && (
               <label className="field">
@@ -191,9 +242,26 @@ export default function Login() {
             )}
 
             <button className="btn btn-lg btn-block" type="submit" disabled={busy || !isConfigured}>
-              {busy ? t('common.oneMoment') : mode === 'login' ? t('login.submitLogin') : t('login.submitSignup')}
+              {busy
+                ? t('common.oneMoment')
+                : mode === 'login' ? t('login.submitLogin')
+                  : mode === 'reset' ? t('reset.send')
+                    : t('login.submitSignup')}
             </button>
           </form>
+
+          {/* Right under the password that just did not work. */}
+          {mode === 'login' && (
+            <button className="btn btn-quiet btn-block mt-4" onClick={() => go('reset')}>
+              {t('reset.link')}
+            </button>
+          )}
+
+          {mode === 'reset' && (
+            <button className="btn btn-quiet btn-block mt-4" onClick={() => go('login')}>
+              {t('reset.back')}
+            </button>
+          )}
         </div>
 
         {unconfirmed && (
@@ -230,6 +298,9 @@ function friendlyAuthError(message, t) {
   // link. Reporting that as a wrong password sends people hunting for a
   // password that is perfectly correct.
   if (/email not confirmed|email_not_confirmed/i.test(message)) return t('login.errorUnconfirmed')
+  if (/only request this (once )?(after|every)|rate limit|too many requests/i.test(message)) {
+    return t('login.errorTooSoon')
+  }
   if (/invalid login credentials/i.test(message)) return t('login.errorCredentials')
   if (/already registered/i.test(message)) return t('login.errorExists')
   if (/password should be/i.test(message)) return t('login.errorPassword')

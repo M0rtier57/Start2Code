@@ -1,15 +1,17 @@
-import { NavLink, Navigate, Outlet, Route, Routes, useNavigate } from 'react-router-dom'
+import { NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 
 import LanguagePicker from './components/LanguagePicker'
 import Logo from './components/Logo'
 import { Avatar, LoadingScreen } from './components/ui'
 import { useAuth } from './lib/AuthContext'
+import { RESET_PATH } from './lib/passwordReset'
 import { isConfigured } from './lib/supabaseClient'
 import { useI18n } from './i18n'
 
 import AdminPanel from './pages/AdminPanel'
 import Dashboard from './pages/Dashboard'
 import Login from './pages/Login'
+import NewPassword from './pages/NewPassword'
 import PythonWorkspace from './pages/PythonWorkspace'
 import ScratchWorkspace from './pages/ScratchWorkspace'
 import TeacherDashboard from './pages/TeacherDashboard'
@@ -17,10 +19,16 @@ import TeacherDashboard from './pages/TeacherDashboard'
 export default function App() {
   const { session, loading } = useAuth()
   const { t } = useI18n()
+  const { pathname } = useLocation()
 
   // Checked before anything touches auth: without credentials every request
   // would fail, and an explanation beats a silently broken login form.
   if (!isConfigured) return <SetupNeeded />
+
+  // A mailed reset link signs the account in on arrival, so this has to be
+  // decided before the session check — otherwise the link would drop straight
+  // into the dashboard and the forgotten password would stay as it was.
+  if (pathname === RESET_PATH) return <NewPassword />
 
   if (loading) return <LoadingScreen label={t('common.loading')} />
   if (!session) return <Login />
