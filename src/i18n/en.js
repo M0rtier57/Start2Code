@@ -48,6 +48,7 @@ export const en = {
   'login.unconfirmedHelp': 'No confirmation email? We can send it again to the address above.',
   'login.resend': 'Send the confirmation email again',
   'login.confirmationResent': 'Sent! Check your email, including the spam folder.',
+  'login.errorMailFailed': 'Your account was probably created, but the confirmation email could not be sent. Ask your teacher to check the mail settings.',
   'login.notConnected': 'Not connected to Supabase',
 
   /* --- navigation -------------------------------------------------------- */

@@ -60,8 +60,19 @@ export default function Login() {
       // saying "wrong password" to a child on a school network sends them
       // hunting for a mistake they did not make.
       if (isNetworkError(error)) {
+        // The diagnosis has to be believed, including when it clears the
+        // network. supabase-js raises AuthRetryableFetchError for any 5xx as
+        // well as for a real network failure, so blaming the network on sight
+        // sends a teacher hunting through firewall settings for what is
+        // actually a server-side problem — a failing confirmation mail, most
+        // often.
         const why = await diagnose()
-        setBlocked(why === 'offline' ? 'offline' : 'blocked')
+
+        if (why === 'offline' || why === 'blocked') {
+          setBlocked(why)
+        } else {
+          toast.error(friendlyAuthError(error.message, t))
+        }
       } else {
         setUnconfirmed(/email not confirmed|email_not_confirmed/i.test(error.message))
         toast.error(friendlyAuthError(error.message, t))
@@ -209,6 +220,12 @@ export default function Login() {
 }
 
 function friendlyAuthError(message, t) {
+  // Supabase answers 500 "Error sending confirmation email" when its SMTP
+  // settings are wrong. The account is usually created anyway, so the useful
+  // thing to say is that the mail failed, not that the sign-up did.
+  if (/sending (confirmation|recovery)?\s*email|smtp/i.test(message)) {
+    return t('login.errorMailFailed')
+  }
   // Supabase says "Email not confirmed" for an account that never clicked the
   // link. Reporting that as a wrong password sends people hunting for a
   // password that is perfectly correct.

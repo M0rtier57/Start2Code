@@ -53,6 +53,7 @@ export const nl = {
   'login.unconfirmedHelp': 'Geen bevestigingsmail gekregen? We sturen hem opnieuw naar het adres hierboven.',
   'login.resend': 'Stuur de bevestigingsmail opnieuw',
   'login.confirmationResent': 'Verstuurd! Kijk in je e-mail, ook in de spammap.',
+  'login.errorMailFailed': 'Je account is waarschijnlijk wel aangemaakt, maar de bevestigingsmail kon niet verstuurd worden. Laat je leerkracht de mailinstellingen nakijken.',
   'login.notConnected': 'Niet verbonden met Supabase',
 
   /* --- navigatie --------------------------------------------------------- */
