@@ -279,11 +279,15 @@ export default function PythonWorkspace() {
    * into a document, but not every browser allows it, so a copy that is
    * refused turns into a download instead of an error.
    */
-  const deliver = useCallback(async (blob, mode, suffix) => {
-    if (mode === 'copy' && await copyImageToClipboard(blob)) {
+  const deliver = useCallback(async (picture, mode, suffix) => {
+    // The copy starts here, straight away, with the picture still being drawn.
+    // See src/lib/imageExport.js for why it must not wait for it.
+    if (mode === 'copy' && await copyImageToClipboard(picture)) {
       return toast.success(t('img.copied'))
     }
 
+    // A picture that failed to draw throws here, and the caller reports it.
+    const blob = await picture
     saveImage(blob, toFilename(`${title}${suffix}`, 'png'))
     toast.success(mode === 'copy' ? t('img.copyFellBack') : t('img.saved'))
   }, [t, title, toast])
@@ -303,14 +307,14 @@ export default function PythonWorkspace() {
     if (!text.trim()) return toast.error(t('img.empty'))
 
     try {
-      const blob = await renderCodeImage(monaco.current, {
+      const picture = renderCodeImage(monaco.current, {
         code: text,
         language: 'python',
         title: toFilename(title, 'py'),
         firstLine: partial ? selection.startLineNumber : 1
       })
 
-      await deliver(blob, mode, '')
+      await deliver(picture, mode, '')
     } catch (error) {
       toast.error(error.message)
     }
@@ -321,11 +325,11 @@ export default function PythonWorkspace() {
     if (!output.length) return toast.error(t('img.emptyConsole'))
 
     try {
-      const blob = await renderConsoleImage({
+      const picture = renderConsoleImage({
         entries: output,
         title: `${toFilename(title, 'py')} — ${t('console.title')}`
       })
-      await deliver(blob, mode, '-console')
+      await deliver(picture, mode, '-console')
     } catch (error) {
       toast.error(error.message)
     }
@@ -340,16 +344,18 @@ export default function PythonWorkspace() {
     if (!target) return toast.error(t('img.stageEmpty'))
 
     try {
-      const reply = await new Promise((resolve, reject) => {
+      const picture = new Promise((resolve, reject) => {
         const timer = setTimeout(() => { snapshot.current = null; reject(new Error(t('img.failed'))) }, 5000)
-        snapshot.current = (data) => { clearTimeout(timer); resolve(data) }
+        snapshot.current = (data) => {
+          clearTimeout(timer)
+          if (data.error === 'empty') return reject(new Error(t('img.stageEmpty')))
+          if (data.error) return reject(new Error(t('img.stageTainted')))
+          resolve(dataUrlToBlob(data.dataUrl))
+        }
         target.postMessage({ source: 's2c', type: 'snapshot' }, '*')
       })
 
-      if (reply.error === 'empty') return toast.error(t('img.stageEmpty'))
-      if (reply.error) return toast.error(t('img.stageTainted'))
-
-      await deliver(dataUrlToBlob(reply.dataUrl), mode, '-stage')
+      await deliver(picture, mode, '-stage')
     } catch (error) {
       toast.error(error.message)
     }
