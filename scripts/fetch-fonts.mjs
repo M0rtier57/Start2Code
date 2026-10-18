@@ -12,12 +12,12 @@
  *
  *     npm run fonts
  *
- * The files it writes are in .gitignore by default — decide for yourself
- * whether to commit them. Committing means a fresh clone builds without the
- * network; not committing means this has to run on the build machine.
+ * The files it writes are committed, so a build on Hostinger finds them without
+ * having to run this. Run it again only to pick up newer versions.
  */
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { createHash } from 'node:crypto'
 
 const OUT = path.join(process.cwd(), 'public', 'fonts')
 
@@ -33,7 +33,10 @@ const MODERN_BROWSER =
   '(KHTML, like Gecko) Chrome/124.0 Safari/537.36'
 
 async function main() {
+  // Start clean, so files from an earlier run that are no longer used go away.
+  await fs.rm(OUT, { recursive: true, force: true })
   await fs.mkdir(OUT, { recursive: true })
+  const written = new Set()
 
   let stylesheet = [
     '/* Written by scripts/fetch-fonts.mjs — do not edit by hand. */',
@@ -46,12 +49,18 @@ async function main() {
     const css = await (await fetch(url, { headers: { 'User-Agent': MODERN_BROWSER } })).text()
 
     // Each @font-face block names one file; rewrite it to point at ours.
-    let index = 0
     const rewritten = await replaceAsync(css, /url\((https:\/\/[^)]+\.woff2)\)/g, async (_, remote) => {
-      const name = `${family.file}-${index++}.woff2`
       const bytes = Buffer.from(await (await fetch(remote)).arrayBuffer())
-      await fs.writeFile(path.join(OUT, name), bytes)
-      console.log(`  ${name}  ${(bytes.length / 1024).toFixed(0)} kB`)
+
+      // Google serves one variable file for every weight, under a different URL
+      // each time. Named by content, the same file is written once.
+      const hash = createHash('sha1').update(bytes).digest('hex').slice(0, 10)
+      const name = `${family.file}-${hash}.woff2`
+      if (!written.has(name)) {
+        written.add(name)
+        await fs.writeFile(path.join(OUT, name), bytes)
+        console.log(`  ${name}  ${(bytes.length / 1024).toFixed(0)} kB`)
+      }
       return `url(/fonts/${name})`
     })
 

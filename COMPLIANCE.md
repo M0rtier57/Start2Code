@@ -20,7 +20,7 @@ Zonder deze punten is de site **niet** in orde, hoe goed de code ook is.
 | 4 | `supabase/data-deletion.sql` draaien | Supabase SQL editor |
 | 5 | De mailsjablonen in Supabase plakken | Authentication → Emails |
 | 6 | `https://code.codelab.be/**` toevoegen aan Redirect URLs | Authentication → URL Configuration |
-| 7 | `npm run fonts` draaien, zodat de lettertypen lokaal staan | lokaal, daarna deployen |
+| 7 | `npm run fonts` draaien | gedaan en gecommit ✔ |
 | 8 | De verwerkersovereenkomst (DPA) van Supabase en van Hostinger ondertekenen/downloaden en bewaren | hun dashboards |
 | 9 | Een register van verwerkingsactiviteiten aanleggen (AVG art. 30) | buiten de code |
 | 10 | De bewaartermijnen die in de privacyverklaring staan ook echt uitvoeren | zie §6 |
