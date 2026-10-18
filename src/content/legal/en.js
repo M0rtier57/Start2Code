@@ -29,6 +29,7 @@ export const legalEn = {
           'For a teacher or administrator: email address, name, role, and when the account was created.',
           'For a child: a first name and a password, and nothing else. We never ask a child for an email address. Every account technically needs one, so for children we build an internal address on a domain nobody owns (emma@leerling.start2code.app, for example). No mail ever arrives there and none is ever sent.',
           'For everyone: the projects you make (the title, your Scratch or Python code, and the preview image), which lesson steps you ticked, and which class you are in.',
+          'For a teacher, also: the private labels they use to sort children\'s work (such as "junk" or "real project"). Only that teacher can see them — not the child and not other teachers.',
           'For submitted work: the teacher\'s assessment — passed or not, a score, and the comments the teacher writes with it.',
           'A short activity list: that a project was created, saved or run, with the time. It holds no IP address, no location and nothing about your browser.'
         ]

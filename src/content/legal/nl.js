@@ -34,6 +34,7 @@ export const legalNl = {
           'Van een leerkracht of beheerder: e-mailadres, naam, rol, en het moment waarop het account is aangemaakt.',
           'Van een kind: een voornaam en een wachtwoord, meer niet. We vragen geen e-mailadres van kinderen. Om technische redenen heeft elk account een adres nodig; voor kinderen maken we daarom een intern adres aan op een domein dat van niemand is (bijvoorbeeld emma@leerling.start2code.app). Daar komt nooit post aan en er wordt nooit iets heen gestuurd.',
           'Van iedereen: de projecten die je maakt (de titel, je Scratch- of Pythoncode, en het voorbeeldplaatje), welke lesstappen je hebt afgevinkt, en in welke klas je zit.',
+          'Van een leerkracht ook: de eigen labels waarmee zij het werk van kinderen sorteert (bijvoorbeeld "rommel" of "echt project"). Die zijn alleen voor die leerkracht zichtbaar — niet voor het kind en niet voor andere leerkrachten.',
           'Van een ingediend project: de beoordeling van de leerkracht — geslaagd of niet, een score, en de opmerkingen die de leerkracht erbij schrijft.',
           'Een korte activiteitenlijst: dat er een project is gemaakt, opgeslagen of uitgevoerd, met het tijdstip. Daar staat geen IP-adres, geen locatie en geen browsergegeven in.'
         ]

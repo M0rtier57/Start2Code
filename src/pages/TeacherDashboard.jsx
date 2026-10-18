@@ -4,6 +4,7 @@ import AddStudentsModal from '../components/AddStudentsModal'
 import { useNavigate } from 'react-router-dom'
 
 import LessonsManager from '../components/LessonsManager'
+import StudentProjects from '../components/StudentProjects'
 import { VerdictBadge, reviewCardClass } from '../components/review'
 import { Avatar, Empty, KindBadge, LoadingScreen, Modal, ProgressBar, timeAgo, useToast } from '../components/ui'
 import { useAuth } from '../lib/AuthContext'
@@ -128,6 +129,7 @@ function ClassDetail({ klass, onChanged }) {
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState('progress')
   const [inspect, setInspect] = useState(null)
+  const [openStudent, setOpenStudent] = useState(null)   // a child's own page
   const [reviews, setReviews] = useState(new Map())
   const [projectFilter, setProjectFilter] = useState('waiting')
   const [addOpen, setAddOpen] = useState(false)               // create new accounts
@@ -209,6 +211,10 @@ function ClassDetail({ klass, onChanged }) {
 
   if (loading) return <div className="mt-6"><LoadingScreen label="Loading class…" /></div>
 
+  if (openStudent) {
+    return <StudentProjects student={openStudent} onBack={() => setOpenStudent(null)} />
+  }
+
   return (
     <div>
       {/* Class header */}
@@ -272,7 +278,7 @@ function ClassDetail({ klass, onChanged }) {
                     <th>Student</th>
                     <th style={{ width: 190 }}>🧩 Scratch</th>
                     <th style={{ width: 190 }}>🐍 Python</th>
-                    <th>Projects</th>
+                    <th>{t('sp.viewWork')}</th>
                     <th>Last active</th>
                     <th />
                   </tr>
@@ -280,17 +286,20 @@ function ClassDetail({ klass, onChanged }) {
                 <tbody>
                   {students.map((student) => {
                     const entry = byStudent.get(student.id)
-                    const count = projects.filter((p) => p.owner_id === student.id).length
                     return (
                       <tr key={student.id}>
                         <td>
-                          <div className="row">
+                          <button
+                            className="name-link"
+                            onClick={() => setOpenStudent(student)}
+                            title={t('sp.openStudent')}
+                          >
                             <Avatar name={student.full_name || student.email} />
-                            <div>
-                              <div style={{ fontWeight: 600 }}>{student.full_name || '—'}</div>
-                              <div className="tiny muted">{student.email}</div>
-                            </div>
-                          </div>
+                            <span>
+                              <span className="name-link-name">{student.full_name || '—'}</span>
+                              <span className="tiny muted" style={{ display: 'block' }}>{student.email}</span>
+                            </span>
+                          </button>
                         </td>
                         <td>
                           <ProgressBar value={entry.scratch} total={tracks.scratch.lessons.length}
@@ -302,7 +311,11 @@ function ClassDetail({ klass, onChanged }) {
                                        tone={entry.python === tracks.python.lessons.length ? 'ok' : ''} />
                           <span className="tiny muted">{entry.python}/{tracks.python.lessons.length}</span>
                         </td>
-                        <td className="num">{count}</td>
+                        <td className="num">
+                          <button className="btn btn-ghost btn-sm" onClick={() => setOpenStudent(student)}>
+                            {t('sp.viewWork')}
+                          </button>
+                        </td>
                         <td className="small muted">{timeAgo(entry.lastSeen)}</td>
                         <td>
                           <button className="btn btn-quiet btn-sm" title="Remove from class"

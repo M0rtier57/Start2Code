@@ -519,12 +519,15 @@ export async function setUserRole(userId, role) {
  * there is no way to turn it into a tool for reading somebody else's work.
  */
 export async function exportMyData(userId) {
-  const [profile, projects, progress, memberships, activity] = await Promise.all([
+  const [profile, projects, progress, memberships, activity, myLabels, labelLinks] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
     supabase.from('projects').select('*').eq('owner_id', userId),
     supabase.from('lesson_progress').select('*').eq('user_id', userId),
     supabase.from('class_members').select('class_id, joined_at, classes (name)').eq('student_id', userId),
-    supabase.from('activity_events').select('kind, detail, created_at').eq('user_id', userId)
+    supabase.from('activity_events').select('kind, detail, created_at').eq('user_id', userId),
+    // Only a teacher has any; for everybody else row level security returns none.
+    supabase.from('teacher_labels').select('id, name, color, created_at'),
+    supabase.from('project_labels').select('project_id, label_id, created_at')
   ])
 
   const mine = (projects.data ?? []).map((project) => project.id)
@@ -540,7 +543,9 @@ export async function exportMyData(userId) {
     lesson_progress: progress.data ?? [],
     classes: memberships.data ?? [],
     reviews: reviews.data ?? [],
-    activity: activity.data ?? []
+    activity: activity.data ?? [],
+    teacher_labels: myLabels.data ?? [],
+    teacher_label_links: labelLinks.data ?? []
   }
 }
 
@@ -562,4 +567,88 @@ export async function deleteStudentAccount(studentId) {
   const { data, error } = await supabase.rpc('delete_student_account', { student: studentId })
   if (error) throw new Error(error.message)
   return data
+}
+
+/* ------------------------------------------- one child's work, and labels */
+
+/**
+ * Everything one child has made, not just what they handed in.
+ *
+ * The review queue stays limited to submitted work on purpose: marking is about
+ * what a child says is ready. This is for looking around — a teacher can already
+ * read all of their own pupils' projects (the database allows it through
+ * teaches_student), so this needs no new permission, only a different question.
+ */
+export async function listStudentProjects(studentId) {
+  return unwrap(
+    await supabase
+      .from('projects')
+      .select('id, owner_id, kind, title, lesson_id, created_at, updated_at, submitted_at')
+      .eq('owner_id', studentId)
+      .order('updated_at', { ascending: false })
+  )
+}
+
+/**
+ * The teacher's own labels. Row level security hands back only the caller's, so
+ * there is nothing to filter here — and a child who asked would get nothing.
+ */
+export async function listMyLabels() {
+  return unwrap(
+    await supabase.from('teacher_labels').select('id, name, color, created_at').order('name')
+  )
+}
+
+export async function createLabel({ name, color = 'grey' }) {
+  return unwrap(
+    await supabase.from('teacher_labels').insert({ name: name.trim(), color }).select().single()
+  )
+}
+
+export async function updateLabel(id, patch) {
+  const clean = { ...patch }
+  if (clean.name != null) clean.name = clean.name.trim()
+  return unwrap(await supabase.from('teacher_labels').update(clean).eq('id', id).select().single())
+}
+
+/** Removes the label and, through the cascade, it comes off every project. */
+export async function deleteLabel(id) {
+  const { error } = await supabase.from('teacher_labels').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
+/** Which labels sit on which projects, as a Map of projectId -> Set of labelIds. */
+export async function listProjectLabels(projectIds) {
+  const map = new Map()
+  if (!projectIds.length) return map
+
+  const rows = unwrap(
+    await supabase.from('project_labels').select('project_id, label_id').in('project_id', projectIds)
+  )
+  rows.forEach((row) => {
+    if (!map.has(row.project_id)) map.set(row.project_id, new Set())
+    map.get(row.project_id).add(row.label_id)
+  })
+  return map
+}
+
+/** Put one label on, or take it off, a whole selection of projects at once. */
+export async function setLabelOnProjects(projectIds, labelId, on) {
+  if (!projectIds.length) return
+
+  if (on) {
+    const rows = projectIds.map((project_id) => ({ project_id, label_id: labelId }))
+    // Already there is fine: ticking a label twice must not be an error.
+    const { error } = await supabase
+      .from('project_labels')
+      .upsert(rows, { onConflict: 'project_id,label_id', ignoreDuplicates: true })
+    if (error) throw new Error(error.message)
+  } else {
+    const { error } = await supabase
+      .from('project_labels')
+      .delete()
+      .eq('label_id', labelId)
+      .in('project_id', projectIds)
+    if (error) throw new Error(error.message)
+  }
 }
