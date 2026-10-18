@@ -46,6 +46,7 @@ export async function deleteProject(project) {
     // Best effort: a leftover file is harmless, a blocked delete is not.
     await supabase.storage.from(BUCKET).remove([project.storage_path])
   }
+  await removeProjectAssets(project.id).catch(() => {})
   return unwrap(await supabase.from('projects').delete().eq('id', project.id))
 }
 
@@ -75,9 +76,51 @@ export async function withdrawProject(id) {
 }
 
 /** Python projects keep their source in the row itself. */
-export async function savePythonCode(id, code, thumbnail = null) {
-  const patch = thumbnail ? { code, thumbnail } : { code }
+export async function savePythonCode(id, code, thumbnail = null, extras = {}) {
+  const patch = { ...(thumbnail ? { code, thumbnail } : { code }), ...extras }
   return unwrap(await supabase.from('projects').update(patch).eq('id', id).select().single())
+}
+
+/* ------------------------------------------- extra files and sprites */
+
+/** Save the extra .py files and/or the sprite list of a project: { files?, assets? }. */
+export async function saveProjectExtras(id, patch) {
+  return unwrap(await supabase.from('projects').update(patch).eq('id', id).select().single())
+}
+
+/**
+ * Uploaded sprites live in the same bucket as a child's other work, under
+ * <user-id>/assets/<project-id>/, which the existing storage policies already
+ * restrict to that child and the teacher of their class.
+ */
+export async function uploadAsset(ownerId, projectId, name, blob) {
+  const path = `${ownerId}/assets/${projectId}/${name}`
+  const { error } = await supabase.storage.from(BUCKET).upload(path, blob, { upsert: true, contentType: 'image/png' })
+  if (error) throw new Error(error.message)
+  return path
+}
+
+export async function downloadAsset(path) {
+  const { data, error } = await supabase.storage.from(BUCKET).download(path)
+  if (error) throw new Error(error.message)
+  return data
+}
+
+export async function removeAssets(paths) {
+  if (!paths.length) return
+  const { error } = await supabase.storage.from(BUCKET).remove(paths)
+  if (error) throw new Error(error.message)
+}
+
+/** Everything a deleted project left in storage. Best effort, like the rest of the clean-up. */
+async function removeProjectAssets(projectId) {
+  const { data: session } = await supabase.auth.getSession()
+  const ownerId = session?.session?.user?.id
+  if (!ownerId) return
+
+  const folder = `${ownerId}/assets/${projectId}`
+  const { data: listed } = await supabase.storage.from(BUCKET).list(folder)
+  if (listed?.length) await supabase.storage.from(BUCKET).remove(listed.map((item) => `${folder}/${item.name}`))
 }
 
 /**
@@ -550,6 +593,8 @@ export async function exportMyData(userId) {
     classes: memberships.data ?? [],
     reviews: reviews.data ?? [],
     activity: activity.data ?? [],
+    // The extra files and sprite list are columns of the project, so they are
+    // already inside "projects" above; uploaded pictures are listed by name.
     teacher_labels: myLabels.data ?? [],
     teacher_label_links: labelLinks.data ?? []
   }

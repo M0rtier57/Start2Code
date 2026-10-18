@@ -39,11 +39,15 @@ begin
   end if;
 
   -- Scratch files live in Storage, which has no foreign key to cascade along.
+  -- Uploaded sprites live under <user-id>/assets/..., not in projects.storage_path.
   delete from storage.objects
   where bucket_id = 'projects'
-    and name in (
-      select storage_path from public.projects
-      where owner_id = me and storage_path is not null
+    and (
+      name in (
+        select storage_path from public.projects
+        where owner_id = me and storage_path is not null
+      )
+      or name like me::text || '/assets/%'
     );
 
   -- Note on a teacher's marks: reviews.reviewer_id is NOT NULL and cascades,
@@ -99,9 +103,12 @@ begin
 
   delete from storage.objects
   where bucket_id = 'projects'
-    and name in (
-      select storage_path from public.projects
-      where owner_id = student and storage_path is not null
+    and (
+      name in (
+        select storage_path from public.projects
+        where owner_id = student and storage_path is not null
+      )
+      or name like student::text || '/assets/%'
     );
 
   delete from auth.users where id = student;
@@ -142,12 +149,15 @@ begin
     where coalesce(last_sign_in_at, created_at) < now() - older_than
   ),
   gone_files as (
-    delete from storage.objects
-    where bucket_id = 'projects'
-      and name in (
-        select p.storage_path from public.projects p
-        join stale s on s.id = p.owner_id
-        where p.storage_path is not null
+    delete from storage.objects o
+    using stale s
+    where o.bucket_id = 'projects'
+      and (
+        o.name like s.id::text || '/assets/%'
+        or o.name in (
+          select p.storage_path from public.projects p
+          where p.owner_id = s.id and p.storage_path is not null
+        )
       )
     returning 1
   )

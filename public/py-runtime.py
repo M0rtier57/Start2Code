@@ -7,14 +7,18 @@
 # on rather than a raw traceback.
 # =============================================================================
 import sys
+import os
+import re
 import ast
+import json
 import asyncio
 import builtins
+import importlib
 import traceback
 
 from pyscript import window as _w
 
-STUDENT_FILE = "your_code.py"
+STUDENT_FILE = "main.py"
 
 
 class _Stream:
@@ -97,8 +101,12 @@ def _hint(exc):
                 "created it before using it." % missing)
     if isinstance(exc, ModuleNotFoundError):
         missing = text.split("'")[1] if "'" in text else "that module"
-        return ("The module '%s' is not available here. Only some libraries work in the "
-                "browser - pygame, math, random and time all do." % missing)
+        return ("Python cannot find '%s'. If it is one of your own files, check that there is a "
+                "tab called %s.py and that the spelling matches. Otherwise it is a library that "
+                "does not work in the browser - pygame, math, random and time all do." % (missing, missing))
+    if isinstance(exc, ImportError):
+        return ("Python found the file but not what you asked for in it. Check that the name "
+                "after 'import' really exists there, and that it is spelled the same.")
     if isinstance(exc, IndexError):
         return "You asked for an item that is past the end of the list. Remember the first item is number 0."
     if isinstance(exc, KeyError):
@@ -117,15 +125,31 @@ def _hint(exc):
     return "%s: %s" % (name, text)
 
 
-def _line_of(number):
-    """The student's source line `number`, if it exists.
+def _is_student_file(filename):
+    return filename == STUDENT_FILE or os.path.basename(str(filename)) in _extra_sources
 
-    traceback cannot find it on its own: the code was compiled from a string,
-    so there is no file on disk for linecache to read.
+
+def _short_name(filename):
+    return STUDENT_FILE if filename == STUDENT_FILE else os.path.basename(str(filename))
+
+
+def _where(filename, number):
+    """"Line 4" for the main file, "functies.py, line 4" for any other."""
+    name = _short_name(filename)
+    return ("Line %d" % number) if name == STUDENT_FILE else ("%s, line %d" % (name, number))
+
+
+def _line_of(number, filename=STUDENT_FILE):
+    """The student's source line `number` of `filename`, if it exists.
+
+    The main file was compiled from a string, so traceback cannot find it on its
+    own: there is no file on disk for linecache to read. The extra files are
+    real files, but this keeps one way of asking for both.
     """
     try:
-        return _source_lines[number - 1].strip()
-    except (IndexError, TypeError):
+        lines = _source_lines if _short_name(filename) == STUDENT_FILE else _extra_sources[_short_name(filename)]
+        return lines[number - 1].strip()
+    except (IndexError, TypeError, KeyError):
         return ""
 
 
@@ -134,22 +158,23 @@ def _report(exc):
     lines = ["\n── Something went wrong ──\n"]
 
     if isinstance(exc, SyntaxError) and exc.lineno:
-        lines.append("Line %d: %s\n" % (exc.lineno, type(exc).__name__))
-        text = exc.text or _line_of(exc.lineno)
+        filename = exc.filename if _is_student_file(exc.filename) else STUDENT_FILE
+        lines.append("%s: %s\n" % (_where(filename, exc.lineno), type(exc).__name__))
+        text = exc.text or _line_of(exc.lineno, filename)
         if text:
             lines.append("    %s\n" % text.rstrip())
     else:
-        # Keep only the frames that belong to the student's own file; the
+        # Keep only the frames that belong to the student's own files; the
         # harness frames are noise to them.
-        frames = [f for f in traceback.extract_tb(exc.__traceback__) if f.filename == STUDENT_FILE]
+        frames = [f for f in traceback.extract_tb(exc.__traceback__) if _is_student_file(f.filename)]
         if frames:
             last = frames[-1]
-            lines.append("Line %d: %s\n" % (last.lineno, type(exc).__name__))
-            text = last.line or _line_of(last.lineno)
+            lines.append("%s: %s\n" % (_where(last.filename, last.lineno), type(exc).__name__))
+            text = last.line or _line_of(last.lineno, last.filename)
             if text:
                 lines.append("    %s\n" % text.strip())
             if len(frames) > 1:
-                trail = " -> ".join("line %d" % f.lineno for f in frames)
+                trail = " -> ".join(_where(f.filename, f.lineno).lower() for f in frames)
                 lines.append("    (path through your code: %s)\n" % trail)
         else:
             lines.append("%s\n" % type(exc).__name__)
@@ -335,6 +360,55 @@ def _build(tree_source):
 # -----------------------------------------------------------------------------
 _w.s2cStarted()
 
+_extra_sources = {}   # file name -> its lines, for error messages
+
+
+def _install_project_files():
+    """Write the project's extra .py files and its sprites where Python looks.
+
+    The program then does what it would do on any computer: `import functies`
+    finds functies.py, and pygame.image.load("ster.png") finds ster.png.
+    Names are checked here as well as in the editor, since this is the end that
+    writes to disk.
+    """
+    name_ok = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_\-]*\.(py|png)$")
+
+    try:
+        extras = json.loads(str(_w.s2cFilesJson or "[]"))
+    except Exception:    # noqa: BLE001
+        extras = []
+
+    for item in extras:
+        name = str(item.get("name", ""))
+        if not name_ok.match(name) or not name.endswith(".py") or not name[:-3].isidentifier() or name == STUDENT_FILE:
+            continue
+        content = str(item.get("content", ""))
+        with open(name, "w", encoding="utf-8") as handle:
+            handle.write(content)
+        _extra_sources[name] = content.splitlines()
+
+    try:
+        asset_names = json.loads(str(_w.s2cAssetNames or "[]"))
+    except Exception:    # noqa: BLE001
+        asset_names = []
+
+    for index, name in enumerate(asset_names):
+        name = str(name)
+        if not name_ok.match(name) or not name.endswith(".png"):
+            continue
+        try:
+            data = _w.s2cAssetData[index].to_bytes()
+        except Exception:    # noqa: BLE001 - a missing picture is reported when the program asks for it
+            continue
+        with open(name, "wb") as handle:
+            handle.write(data)
+
+    if os.getcwd() not in sys.path:
+        sys.path.insert(0, os.getcwd())
+    importlib.invalidate_caches()
+
+
+_install_project_files()
 
 def _follow_window_size():
     """Make the stage the size of the window the program asks for.

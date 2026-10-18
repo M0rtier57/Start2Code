@@ -29,6 +29,7 @@ export const legalEn = {
           'For a teacher or administrator: email address, name, role, and when the account was created.',
           'For a child: a first name and a password, and nothing else. We never ask a child for an email address. Every account technically needs one, so for children we build an internal address on a domain nobody owns (emma@leerling.start2code.app, for example). No mail ever arrives there and none is ever sent.',
           'For everyone: the projects you make (the title, your Scratch or Python code, and the preview image), which lesson steps you ticked, and which class you are in.',
+          'For a project with several files: the extra Python files a child creates, and the sprites (pictures) a child adds. An uploaded picture is saved again as a plain PNG when it is uploaded, which removes hidden data such as the GPS position of a photo. They are visible only to the child and the class teacher, and we ask children not to use photos of people.',
           'For a teacher, also: the private labels they use to sort children\'s work (such as "junk" or "real project"). Only that teacher can see them — not the child and not other teachers.',
           'For submitted work: the teacher\'s assessment — passed or not, a score, and the comments the teacher writes with it.',
           'A short activity list: that a project was created, saved or run, with the time. It holds no IP address, no location and nothing about your browser.'
@@ -41,7 +42,7 @@ export const legalEn = {
           'There is no advertising network, no tracking pixel and no visitor analytics on this site.',
           'We build no profiles and make no automated decisions about children.',
           'We send no marketing. The only mail we send is about your own account: confirming it is you, or setting a new password.',
-          'We do not ask children for a surname, address, date of birth, phone number or photograph.'
+          'We do not ask children for a surname, address, date of birth, phone number or photograph. A child can choose to use a picture as a sprite in a game; see above for what happens to it.'
         ]
       },
       {
@@ -310,6 +311,7 @@ export const legalEn = {
         h: 'Images',
         p: [
           'The logo was commissioned by {legalName} and belongs to {legalName}.',
+          'The sprites in the built-in library were drawn for Start2Code and belong to {legalName}. Pictures a child uploads stay the child\'s own.',
           'The symbols in the app are emoji. Your own operating system draws those; we ship no image for them.'
         ]
       },
@@ -333,7 +335,7 @@ export const legalEn = {
         h: 'Yourself, right now',
         p: [
           'Log in and go to "My data". There are two buttons: one downloads everything, the other deletes your account for good.',
-          'Deleting erases your account, your projects, your progress, your submitted work and the assessments attached to it. It cannot be undone, so download what you want to keep first.'
+          'Deleting erases your account, your projects (including extra files and uploaded pictures), your progress, your submitted work and the assessments attached to it. It cannot be undone, so download what you want to keep first.'
         ]
       },
       {

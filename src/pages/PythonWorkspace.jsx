@@ -4,6 +4,8 @@ import Editor from '@monaco-editor/react'
 
 import Console from '../components/Console'
 import ContextMenu from '../components/ContextMenu'
+import FileTabs from '../components/FileTabs'
+import SpritePanel from '../components/SpritePanel'
 import LessonPanel from '../components/LessonPanel'
 import ReviewPanel from '../components/review'
 import { LoadingScreen, Modal, useToast } from '../components/ui'
@@ -12,7 +14,10 @@ import {
   getProfile, getProject, getReview, logActivity, renameProject, savePythonCode, submitProject
 } from '../lib/api'
 import { STATE_KEY, STATE_STYLE, submissionState } from '../lib/submission'
-import { downloadText, toFilename } from '../lib/download'
+import { downloadBlob, downloadText, toFilename } from '../lib/download'
+import { MAIN_FILE, allSource } from '../lib/projectFiles'
+import { useProjectAssets } from '../lib/useProjectAssets'
+import { makeZip } from '../lib/zip'
 import { renderCodeImage } from '../lib/codeImage'
 import { renderConsoleImage } from '../lib/consoleImage'
 import { dataUrlToBlob } from '../lib/imageCanvas'
@@ -36,6 +41,9 @@ export default function PythonWorkspace() {
 
   const [project, setProject] = useState(null)
   const [code, setCode] = useState('')
+  const [extraFiles, setExtraFiles] = useState([])   // the .py files besides main.py
+  const [activeFile, setActiveFile] = useState(MAIN_FILE)
+  const [spritesOpen, setSpritesOpen] = useState(false)
   const [title, setTitle] = useState('')
   const [loading, setLoading] = useState(true)
   const [saveState, setSaveState] = useState('saved')   // saved | dirty | saving | error
@@ -63,6 +71,7 @@ export default function PythonWorkspace() {
   const monaco = useRef(null)
   const pendingRun = useRef(null)     // code waiting for a fresh frame to boot
   const savedCode = useRef('')
+  const savedExtras = useRef('[]')   // the extra files as last saved, as JSON
 
   const lesson = useMemo(
     () => getLesson('python', project?.lesson_id ?? params.get('lesson')),
@@ -76,12 +85,23 @@ export default function PythonWorkspace() {
   // even trying, and swaps the lesson steps for the marking panel.
   const reviewing = Boolean(project && user && project.owner_id !== user.id && isTeacher)
 
+  const extrasJson = useMemo(() => JSON.stringify(extraFiles), [extraFiles])
+
+  const sprites = useProjectAssets({
+    project,
+    userId: user?.id,
+    reviewing,
+    // Errors from the sprite code are i18n keys; anything else is already a message.
+    onError: (message) => toast.error(String(message).startsWith('sprite.') ? t(message) : message)
+  })
+
   // Lessons up to the pygame ones only need a console; loading pygame for them
   // would mean a multi-second download for a two-line program.
   const mode = useMemo(() => {
-    if (/^\s*import\s+pygame|^\s*from\s+pygame/m.test(code)) return 'game'
+    // pygame may be imported by a helper file rather than by main.py.
+    if (/^\s*import\s+pygame|^\s*from\s+pygame/m.test(allSource(code, extraFiles))) return 'game'
     return lesson?.mode === 'game' ? 'game' : 'console'
-  }, [code, lesson])
+  }, [code, extraFiles, lesson])
 
   /* ------------------------------------------------------------------ load */
   useEffect(() => {
@@ -94,6 +114,10 @@ export default function PythonWorkspace() {
         setProject(row)
         setCode(row.code ?? '')
         savedCode.current = row.code ?? ''
+
+        const extras = Array.isArray(row.files) ? row.files : []
+        setExtraFiles(extras)
+        savedExtras.current = JSON.stringify(extras)
         setTitle(row.title)
 
         // Whose work is this, and has it been marked already?
@@ -118,33 +142,41 @@ export default function PythonWorkspace() {
     if (!project || reviewing) return
     setSaveState('saving')
     try {
-      await savePythonCode(project.id, nextCode)
+      // The extra files only ride along when they changed: a project that
+      // never used them keeps saving exactly as before.
+      const extrasChanged = extrasJson !== savedExtras.current
+      await savePythonCode(project.id, nextCode, null, extrasChanged ? { files: extraFiles } : {})
       if (nextTitle !== project.title) await renameProject(project.id, nextTitle)
       savedCode.current = nextCode
+      savedExtras.current = extrasJson
       setSaveState('saved')
       logActivity(user?.id, 'project_saved', { project_id: project.id, kind: 'python' })
     } catch (error) {
       setSaveState('error')
       toast.error(t('ws.saveError', { error: error.message }))
     }
-  }, [project, code, title, user, toast, t, reviewing])
+  }, [project, code, title, user, toast, t, reviewing, extraFiles, extrasJson])
 
   // Autosave after a pause in typing, so nothing is ever lost at the bell.
   useEffect(() => {
-    if (!project || reviewing || code === savedCode.current) return
+    if (!project || reviewing) return
+    if (code === savedCode.current && extrasJson === savedExtras.current) return
     setSaveState('dirty')
     const timer = setTimeout(() => save(code, title), AUTOSAVE_DELAY)
     return () => clearTimeout(timer)
-  }, [code, title, project, save, reviewing])
+  }, [code, title, project, save, reviewing, extrasJson])
 
   // Warn before leaving with unsaved work.
   useEffect(() => {
     const handler = (event) => {
-      if (!reviewing && savedCode.current !== code) { event.preventDefault(); event.returnValue = '' }
+      if (!reviewing && (savedCode.current !== code || savedExtras.current !== extrasJson)) {
+        event.preventDefault()
+        event.returnValue = ''
+      }
     }
     window.addEventListener('beforeunload', handler)
     return () => window.removeEventListener('beforeunload', handler)
-  }, [code, reviewing])
+  }, [code, reviewing, extrasJson])
 
   /* ------------------------------------------------------------------- run */
   const append = useCallback((entries) => {
@@ -165,7 +197,14 @@ export default function PythonWorkspace() {
           // A fresh frame is ready; send the run that was waiting for it.
           if (pendingRun.current) {
             frame.current?.contentWindow?.postMessage(
-              { source: 's2c', type: 'run', code: pendingRun.current.code, mode: pendingRun.current.mode },
+              {
+                source: 's2c',
+                type: 'run',
+                code: pendingRun.current.code,
+                mode: pendingRun.current.mode,
+                files: pendingRun.current.files,
+                assets: pendingRun.current.assets
+              },
               '*'
             )
             pendingRun.current = null
@@ -221,20 +260,73 @@ export default function PythonWorkspace() {
     return () => window.removeEventListener('message', onMessage)
   }, [append, t])
 
-  const run = useCallback(() => {
+  const run = useCallback(async () => {
     setOutput([{ stream: 'sys', text: (mode === 'game' ? t('console.runningGame') : t('console.runningProgram')) + '\n' }])
     setRunning(true)
 
+    // The sprites may still be on their way from storage; the program needs
+    // them in place before its first line runs.
+    const assets = await sprites.payload()
+
     // Pyodide has no clean way to abort a running program, so each run gets a
     // brand new frame. Remounting the iframe is the reset.
-    pendingRun.current = { code, mode }
+    pendingRun.current = { code, mode, files: extraFiles, assets }
     setCaption('')
     setAsk(null)
     setFrameKey((key) => key + 1)
 
-    if (project && code !== savedCode.current) save(code, title)
+    if (project && (code !== savedCode.current || extrasJson !== savedExtras.current)) save(code, title)
     logActivity(user?.id, 'code_run', { project_id: project?.id, mode })
-  }, [code, mode, project, save, title, user, t])
+  }, [code, mode, project, save, title, user, t, extraFiles, extrasJson, sprites])
+
+  /* ----------------------------------------------------- several files */
+  const activeContent = activeFile === MAIN_FILE
+    ? code
+    : (extraFiles.find((file) => file.name === activeFile)?.content ?? '')
+
+  const editActive = (value) => {
+    if (activeFile === MAIN_FILE) setCode(value)
+    else setExtraFiles((files) => files.map((file) => (file.name === activeFile ? { ...file, content: value } : file)))
+  }
+
+  const addFile = (name) => {
+    const module = name.replace(/\.py$/, '')
+    setExtraFiles((files) => [...files, { name, content: t('file.starter', { module }) }])
+    setActiveFile(name)
+  }
+
+  const removeFile = (name) => {
+    if (!window.confirm(t('file.confirmRemove', { name }))) return
+    setExtraFiles((files) => files.filter((file) => file.name !== name))
+    if (activeFile === name) setActiveFile(MAIN_FILE)
+  }
+
+  /** Put the line that loads a sprite where the cursor is. */
+  const insertSprite = (name) => {
+    const instance = editor.current
+    if (!instance) return
+    instance.executeEdits('sprite', [{
+      range: instance.getSelection(),
+      text: `pygame.image.load("${name}")`,
+      forceMoveMarkers: true
+    }])
+    instance.focus()
+  }
+
+  /** One .py when that is all there is; a zip with everything when it is not. */
+  const downloadProject = async () => {
+    if (extraFiles.length === 0 && sprites.list.length === 0) {
+      return downloadText(code, toFilename(title, 'py'))
+    }
+
+    const encoder = new TextEncoder()
+    const pictures = await sprites.payload()
+    downloadBlob(makeZip([
+      { name: MAIN_FILE, data: encoder.encode(code) },
+      ...extraFiles.map((file) => ({ name: file.name, data: encoder.encode(file.content) })),
+      ...pictures.map((picture) => ({ name: picture.name, data: new Uint8Array(picture.buffer) }))
+    ]), toFilename(title, 'zip'))
+  }
 
   /** The child pressed Enter in the console's text box. */
   const answer = useCallback((value) => {
@@ -501,8 +593,13 @@ export default function PythonWorkspace() {
         <button className="btn btn-dark btn-sm" onClick={() => setShowLesson((v) => !v)}>
           {showLesson ? t('ws.hideSteps') : t('ws.steps')}
         </button>
-        <button className="btn btn-dark btn-sm" onClick={() => downloadText(code, toFilename(title, 'py'))}>
-          {t('ws.downloadPy')}
+        {(!reviewing || sprites.list.length > 0) && (
+          <button className="btn btn-dark btn-sm" onClick={() => setSpritesOpen(true)}>
+            🖼 {t('spr.button')}{sprites.list.length > 0 ? ` (${sprites.list.length})` : ''}
+          </button>
+        )}
+        <button className="btn btn-dark btn-sm" onClick={downloadProject}>
+          {extraFiles.length > 0 || sprites.list.length > 0 ? t('ws.downloadZip') : t('ws.downloadPy')}
         </button>
         {!reviewing && (
           <button className="btn btn-sm" onClick={() => save()} disabled={saveState === 'saving'}>{t('common.save')}</button>
@@ -541,7 +638,16 @@ export default function PythonWorkspace() {
 
         {/* Editor + console */}
         <div className="ws-pane" style={{ flex: 1.1 }}>
-          <div style={{ flex: 1, minHeight: 0 }}>
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            <FileTabs
+              extras={extraFiles}
+              active={activeFile}
+              onSelect={setActiveFile}
+              onAdd={addFile}
+              onRemove={removeFile}
+              readOnly={reviewing}
+            />
+            <div style={{ flex: 1, minHeight: 0 }}>
             <Editor
               height="100%"
               defaultLanguage="python"
@@ -551,8 +657,9 @@ export default function PythonWorkspace() {
                 setEditorReady(true)
               }}
               theme="vs-dark"
-              value={code}
-              onChange={(value) => setCode(value ?? '')}
+              path={activeFile}
+              value={activeContent}
+              onChange={(value) => editActive(value ?? '')}
               options={{
                 fontSize: 15,
                 fontFamily: 'JetBrains Mono, ui-monospace, Consolas, monospace',
@@ -565,6 +672,7 @@ export default function PythonWorkspace() {
                 lineNumbersMinChars: 3
               }}
             />
+            </div>
           </div>
 
           <Console
@@ -630,6 +738,15 @@ export default function PythonWorkspace() {
           </div>
         </div>
       </div>
+
+      {spritesOpen && (
+        <SpritePanel
+          assets={sprites}
+          readOnly={reviewing}
+          onInsert={reviewing ? null : insertSprite}
+          onClose={() => setSpritesOpen(false)}
+        />
+      )}
 
       {menu && (
         <ContextMenu

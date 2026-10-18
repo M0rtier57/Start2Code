@@ -34,6 +34,7 @@ export const legalNl = {
           'Van een leerkracht of beheerder: e-mailadres, naam, rol, en het moment waarop het account is aangemaakt.',
           'Van een kind: een voornaam en een wachtwoord, meer niet. We vragen geen e-mailadres van kinderen. Om technische redenen heeft elk account een adres nodig; voor kinderen maken we daarom een intern adres aan op een domein dat van niemand is (bijvoorbeeld emma@leerling.start2code.app). Daar komt nooit post aan en er wordt nooit iets heen gestuurd.',
           'Van iedereen: de projecten die je maakt (de titel, je Scratch- of Pythoncode, en het voorbeeldplaatje), welke lesstappen je hebt afgevinkt, en in welke klas je zit.',
+          'Van een project met meerdere bestanden: de extra Python-bestanden die een kind aanmaakt, en de sprites (afbeeldingen) die een kind toevoegt. Een eigen afbeelding wordt bij het uploaden opnieuw opgeslagen als gewone PNG, waardoor verborgen gegevens zoals de GPS-locatie van een foto verdwijnen. Ze zijn alleen zichtbaar voor het kind en de leerkracht van de klas, en we vragen kinderen geen foto\'s van mensen te gebruiken.',
           'Van een leerkracht ook: de eigen labels waarmee zij het werk van kinderen sorteert (bijvoorbeeld "rommel" of "echt project"). Die zijn alleen voor die leerkracht zichtbaar — niet voor het kind en niet voor andere leerkrachten.',
           'Van een ingediend project: de beoordeling van de leerkracht — geslaagd of niet, een score, en de opmerkingen die de leerkracht erbij schrijft.',
           'Een korte activiteitenlijst: dat er een project is gemaakt, opgeslagen of uitgevoerd, met het tijdstip. Daar staat geen IP-adres, geen locatie en geen browsergegeven in.'
@@ -46,7 +47,7 @@ export const legalNl = {
           'Er staat geen advertentienetwerk, geen trackingpixel en geen bezoekersstatistiek op deze site.',
           'We maken geen profielen en nemen geen geautomatiseerde beslissingen over kinderen.',
           'We sturen geen reclame. De enige mails die we versturen gaan over je eigen account: bevestigen dat je het bent, of een nieuw wachtwoord instellen.',
-          'We vragen kinderen niet naar hun achternaam, adres, geboortedatum, telefoonnummer of foto.'
+          'We vragen kinderen niet naar hun achternaam, adres, geboortedatum, telefoonnummer of foto. Een kind kan wel zelf een afbeelding als sprite in een spel gebruiken; zie hierboven wat daarmee gebeurt.'
         ]
       },
       {
@@ -315,6 +316,7 @@ export const legalNl = {
         h: 'Beeld',
         p: [
           'Het logo is in opdracht van {legalName} gemaakt en is eigendom van {legalName}.',
+          'De sprites in de ingebouwde bibliotheek zijn voor Start2Code getekend en eigendom van {legalName}. Afbeeldingen die een kind zelf uploadt, blijven van dat kind.',
           'De symbolen in de app zijn emoji. Die worden door je eigen besturingssysteem getekend; wij leveren er geen afbeelding voor mee.'
         ]
       },
@@ -338,7 +340,7 @@ export const legalNl = {
         h: 'Zelf, meteen',
         p: [
           'Log in en ga naar "Mijn gegevens". Daar staan twee knoppen: één om alles te downloaden, en één om je account definitief te verwijderen.',
-          'Verwijderen wist je account, je projecten, je voortgang, je ingediende werk en de beoordelingen die daarbij horen. Het kan niet ongedaan worden gemaakt, dus download eerst wat je wil houden.'
+          'Verwijderen wist je account, je projecten (ook de extra bestanden en geüploade afbeeldingen), je voortgang, je ingediende werk en de beoordelingen die daarbij horen. Het kan niet ongedaan worden gemaakt, dus download eerst wat je wil houden.'
         ]
       },
       {

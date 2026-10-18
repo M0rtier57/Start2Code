@@ -193,7 +193,7 @@
     // -------------------------------------------------------------------------
     var hasRun = false;
 
-    function run(code, mode) {
+    function run(code, mode, files, assets) {
       if (hasRun) {
         // Pyodide cannot cleanly tear down a half-finished program, so every
         // run starts from a fresh frame; the parent reloads us.
@@ -209,6 +209,15 @@
 
       window.s2cSource = code;
       window.s2cMode = mode;
+
+      // The project's other files and its sprites, for py-runtime.py to put on
+      // the Python side's disk before the program starts. Sent as JSON and raw
+      // bytes: nothing here needs Pyodide to understand a JavaScript object.
+      files = Array.isArray(files) ? files : [];
+      assets = Array.isArray(assets) ? assets : [];
+      window.s2cFilesJson = JSON.stringify(files);
+      window.s2cAssetNames = JSON.stringify(assets.map(function (a) { return a.name; }));
+      window.s2cAssetData = assets.map(function (a) { return new Uint8Array(a.buffer); });
 
       // The runtime and the lessons have to be of the same version: a lesson
       // that no longer carries the asyncio boilerplate relies on the runtime
@@ -288,7 +297,7 @@
     window.addEventListener('message', function (event) {
       var data = event.data;
       if (!data || data.source !== 's2c') return;
-      if (data.type === 'run') run(String(data.code || ''), data.mode);
+      if (data.type === 'run') run(String(data.code || ''), data.mode, data.files, data.assets);
       if (data.type === 'input-response') {
         var answer = pendingInputs[data.id];
         if (answer) {

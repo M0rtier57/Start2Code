@@ -203,6 +203,7 @@ Volledige inventaris van persoonsgegevens:
 | `projects` | titel, code, .sb3, voorbeeldplaatje | het werk zelf |
 | `lesson_progress` | afgevinkte stappen | verdergaan waar je gebleven was |
 | `reviews` | geslaagd/niet, score, opmerkingen | verbeteren |
+| `projects.files`, `projects.assets` + objecten onder `<user-id>/assets/` | extra .py-bestanden en sprites (afbeeldingen) van een kind | meerdere bestanden en afbeeldingen in een spel; zichtbaar voor kind en leerkracht (RLS + opslagbeleid) |
 | `teacher_labels`, `project_labels` | eigen labels van een leerkracht op projecten van kinderen | werk kunnen sorteren; alleen zichtbaar voor die leerkracht (RLS) |
 | `activity_events` | soort, project-id, tijdstip | de leerkracht ziet dat er gewerkt is |
 
