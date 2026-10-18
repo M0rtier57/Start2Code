@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import AddStudentsModal from '../components/AddStudentsModal'
-import { useNavigate } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 
 import LessonsManager from '../components/LessonsManager'
 import StudentProjects from '../components/StudentProjects'
 import { VerdictBadge, reviewCardClass } from '../components/review'
 import { Avatar, Empty, KindBadge, LoadingScreen, Modal, ProgressBar, timeAgo, useToast } from '../components/ui'
 import { useAuth } from '../lib/AuthContext'
+import { useOpenProject } from '../lib/returnTo'
 import {
   archiveClass, createClass, deleteClass, downloadScratchFile, listActivityFor,
   addStudentToClass, listClassMembers, listMyClasses, listProgressFor, listProjectsFor,
@@ -21,8 +22,8 @@ import { useI18n } from '../i18n'
 export default function TeacherDashboard() {
   const toast = useToast()
 
+  const [params, setParams] = useSearchParams()
   const [classes, setClasses] = useState([])
-  const [activeId, setActiveId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [newOpen, setNewOpen] = useState(false)
   const [section, setSection] = useState('classes')   // classes | lessons
@@ -33,7 +34,6 @@ export default function TeacherDashboard() {
       // (or every class, for an admin).
       const rows = await listMyClasses()
       setClasses(rows)
-      setActiveId((current) => current ?? rows[0]?.id ?? null)
     } catch (error) {
       toast.error(error.message)
     } finally {
@@ -45,6 +45,10 @@ export default function TeacherDashboard() {
 
   if (loading) return <LoadingScreen label="Loading your classes…" />
 
+  // The class in the address, else the first one. A stale id (a deleted class,
+  // an old bookmark) falls back to the first rather than to an empty page.
+  const activeId = classes.some((c) => c.id === params.get('class')) ? params.get('class') : classes[0]?.id ?? null
+  const setActiveId = (id) => setParams({ class: id }, { replace: true })
   const active = classes.find((c) => c.id === activeId) ?? null
 
   return (
@@ -120,16 +124,31 @@ function ClassDetail({ klass, onChanged }) {
   const { isAdmin } = useAuth()
   const { tracks } = useCurriculum()
   const { t } = useI18n()
-  const navigate = useNavigate()
+  const openProject = useOpenProject()
+  const [params, setParams] = useSearchParams()
 
   const [students, setStudents] = useState([])
   const [progress, setProgress] = useState([])
   const [projects, setProjects] = useState([])
   const [activity, setActivity] = useState([])
   const [loading, setLoading] = useState(true)
-  const [view, setView] = useState('progress')
   const [inspect, setInspect] = useState(null)
-  const [openStudent, setOpenStudent] = useState(null)   // a child's own page
+
+  // Tab and child live in the address too, so a project opened from the review
+  // queue or from one child's page brings you back to exactly that.
+  const view = params.get('view') ?? 'progress'
+  const openStudent = students.find((s) => s.id === params.get('student')) ?? null
+
+  const patchParams = (changes) => setParams((current) => {
+    const next = new URLSearchParams(current)
+    Object.entries(changes).forEach(([key, value]) => {
+      if (value == null) next.delete(key); else next.set(key, value)
+    })
+    return next
+  }, { replace: true })
+
+  const setView = (next) => patchParams({ view: next, student: null })
+  const setOpenStudent = (student) => patchParams({ student: student?.id ?? null })
   const [reviews, setReviews] = useState(new Map())
   const [projectFilter, setProjectFilter] = useState('waiting')
   const [addOpen, setAddOpen] = useState(false)               // create new accounts
@@ -394,7 +413,7 @@ function ClassDetail({ klass, onChanged }) {
                               able to run the game and read the blocks first. */}
                           <button
                             className="btn btn-block mt-4"
-                            onClick={() => navigate(`/${project.kind}/${project.id}`)}
+                            onClick={() => openProject(project)}
                           >
                             {t('review.openAndReview')}
                           </button>
@@ -644,7 +663,7 @@ function AddStudentModal({ klass, existing, onClose, onAdded }) {
 function ProjectInspector({ project, owner, onClose }) {
   const toast = useToast()
   const { t } = useI18n()
-  const navigate = useNavigate()
+  const openProject = useOpenProject()
 
   const download = async () => {
     try {
@@ -671,7 +690,7 @@ function ProjectInspector({ project, owner, onClose }) {
       footer={
         <>
           <button className="btn btn-ghost" onClick={download}>⬇ Download</button>
-          <button className="btn" onClick={() => navigate(`/${project.kind}/${project.id}`)}>
+          <button className="btn" onClick={() => openProject(project)}>
             {t('review.openAndReview')}
           </button>
         </>

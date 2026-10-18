@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-
 import { LabelChip, LabelPickerModal, ManageLabelsModal } from './ProjectLabels'
 import { VerdictBadge, reviewCardClass } from './review'
 import { Avatar, Empty, KindBadge, LoadingScreen, timeAgo, useToast } from './ui'
 import {
   listMyLabels, listProjectLabels, listReviewsFor, listStudentProjects, setLabelOnProjects
 } from '../lib/api'
+import { useOpenProject } from '../lib/returnTo'
 import { STATE_KEY, STATE_STYLE, submissionState } from '../lib/submission'
 import { useI18n } from '../i18n'
 
@@ -26,7 +25,7 @@ const NO_LABEL = 'none'
 export default function StudentProjects({ student, onBack }) {
   const { t } = useI18n()
   const toast = useToast()
-  const navigate = useNavigate()
+  const openProject = useOpenProject()
 
   const [loading, setLoading] = useState(true)
   const [projects, setProjects] = useState([])
@@ -330,7 +329,7 @@ export default function StudentProjects({ student, onBack }) {
 
                   <button
                     className="btn btn-ghost btn-block btn-sm mt-4"
-                    onClick={() => navigate(`/${project.kind}/${project.id}`)}
+                    onClick={() => openProject(project)}
                   >
                     {t('sp.open')}
                   </button>

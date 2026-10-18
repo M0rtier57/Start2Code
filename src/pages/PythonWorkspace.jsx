@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import Editor from '@monaco-editor/react'
 
 import Console from '../components/Console'
@@ -26,6 +26,9 @@ export default function PythonWorkspace() {
   const { projectId } = useParams()
   const [params] = useSearchParams()
   const navigate = useNavigate()
+  const location = useLocation()
+  // Where this project was opened from; the home screen if nobody said.
+  const backTo = typeof location.state?.from === 'string' ? location.state.from : '/'
   const { user, isTeacher } = useAuth()
   const toast = useToast()
   const { getLesson, tracks } = useCurriculum()
@@ -431,7 +434,7 @@ export default function PythonWorkspace() {
   return (
     <div className="ws">
       <div className="ws-bar">
-        <button className="btn btn-dark btn-sm" onClick={() => navigate('/')}>{t('common.back')}</button>
+        <button className="btn btn-dark btn-sm" onClick={() => navigate(backTo)}>{t('common.back')}</button>
 
         <input
           className="ws-title"
@@ -499,7 +502,7 @@ export default function PythonWorkspace() {
             lesson={lesson}
             review={review}
             onClose={() => setShowLesson(false)}
-            onPickLesson={(next) => (next?.id ? navigate(`/python/${projectId}?lesson=${next.id}`) : setPickerOpen(true))}
+            onPickLesson={(next) => (next?.id ? navigate(`/python/${projectId}?lesson=${next.id}`, { state: location.state }) : setPickerOpen(true))}
           />
         )}
 
@@ -606,7 +609,7 @@ export default function PythonWorkspace() {
               <button
                 key={item.id}
                 className="tile"
-                onClick={() => { setPickerOpen(false); navigate(`/python/${projectId}?lesson=${item.id}`) }}
+                onClick={() => { setPickerOpen(false); navigate(`/python/${projectId}?lesson=${item.id}`, { state: location.state }) }}
               >
                 <h3>{pick(item.title)}</h3>
                 <p className="small muted mt-2">{pick(item.blurb)}</p>
