@@ -27,9 +27,17 @@
     }
     body.console-mode #stage-wrap { display: none; }
 
+    /* The waiting message sits on top of the stage rather than beside it.
+       As a flex sibling of the stage it was squeezed to whatever width was left
+       over, which in a narrow pane clipped it on the left. The colour is lifted
+       too: #6b7280 on this background is 3.9:1, under the 4.5:1 that small text
+       needs; #c5cdd8 is about 11:1. */
     #idle {
-      color: #6b7280; font-size: 14px; text-align: center;
-      padding: 24px; line-height: 1.6;
+      position: absolute; inset: 0; z-index: 5;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: #0f1117;
+      color: #c5cdd8; font-size: 15px; text-align: center;
+      padding: 24px; line-height: 1.6; overflow-wrap: anywhere;
     }
     #idle.hidden { display: none; }
     .spinner {
