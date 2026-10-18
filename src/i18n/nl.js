@@ -166,6 +166,14 @@ export const nl = {
   'lbl.usedOn': 'Gebruikt bij: {count}',
   'lbl.removeFrom': 'Haal label {name} weg',
   'lbl.confirmDelete': 'Label “{name}” verwijderen? Het gaat bij {count} project(en) eraf. De projecten zelf blijven.',
+  'lock.badge': 'Nog op slot',
+  'lock.hint': 'Dien eerst “{previous}” in, dan gaat dit level open.',
+  'lock.handInFirst': 'Dien dit project eerst in (de knop bovenaan). Dan kun je naar “{title}”.',
+  'lock.openAll': 'Alle levels open',
+  'lock.openAllOn': 'Kinderen in deze klas kunnen elk level meteen starten.',
+  'lock.openAllOff': 'Kinderen openen het volgende level pas als ze het vorige hebben ingediend.',
+  'lock.nowOpen': 'Alle levels staan open voor deze klas.',
+  'lock.nowOrdered': 'Levels gaan weer één voor één open.',
   'login.notConnected': 'Niet verbonden met Supabase',
 
   /* --- navigatie --------------------------------------------------------- */

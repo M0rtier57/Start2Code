@@ -10,7 +10,7 @@ import { Avatar, Empty, KindBadge, LoadingScreen, Modal, ProgressBar, timeAgo, u
 import { useAuth } from '../lib/AuthContext'
 import { useOpenProject } from '../lib/returnTo'
 import {
-  archiveClass, createClass, deleteClass, downloadScratchFile, listActivityFor,
+  archiveClass, createClass, deleteClass, setClassLessonsOpen, downloadScratchFile, listActivityFor,
   addStudentToClass, listClassMembers, listMyClasses, listProgressFor, listProjectsFor,
   listReviewsFor, removeStudent, searchStudents
 } from '../lib/api'
@@ -151,6 +151,7 @@ function ClassDetail({ klass, onChanged }) {
   const setOpenStudent = (student) => patchParams({ student: student?.id ?? null })
   const [reviews, setReviews] = useState(new Map())
   const [projectFilter, setProjectFilter] = useState('waiting')
+  const [levelsOpen, setLevelsOpen] = useState(Boolean(klass.lessons_open))
   const [addOpen, setAddOpen] = useState(false)               // create new accounts
   const [addExistingOpen, setAddExistingOpen] = useState(false) // add an existing child
 
@@ -215,6 +216,17 @@ function ClassDetail({ klass, onChanged }) {
     toast.success('Exported class results')
   }
 
+  const toggleLevels = async (open) => {
+    setLevelsOpen(open)     // the switch answers at once; it is put back if the save fails
+    try {
+      await setClassLessonsOpen(klass.id, open)
+      toast.success(t(open ? 'lock.nowOpen' : 'lock.nowOrdered'))
+    } catch (error) {
+      setLevelsOpen(!open)
+      toast.error(error.message)
+    }
+  }
+
   // "Waiting" means handed in and not marked since — so a child who corrects
   // their work and hands it in again comes back to the top of the queue.
   const stateOf = (project) => submissionState(project, reviews.get(project.id))
@@ -267,6 +279,16 @@ function ClassDetail({ klass, onChanged }) {
           )}
         </div>
       </div>
+
+      <label className="consent card card-flat mt-4" style={{ padding: '14px 18px' }}>
+        <input type="checkbox" checked={levelsOpen} onChange={(event) => toggleLevels(event.target.checked)} />
+        <span>
+          <strong className="small">{t('lock.openAll')}</strong>
+          <span className="tiny muted" style={{ display: 'block' }}>
+            {t(levelsOpen ? 'lock.openAllOn' : 'lock.openAllOff')}
+          </span>
+        </span>
+      </label>
 
       {students.length === 0 ? (
         <div className="mt-6">

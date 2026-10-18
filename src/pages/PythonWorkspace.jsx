@@ -498,6 +498,7 @@ export default function PythonWorkspace() {
           />
         ) : showLesson && (
           <LessonPanel
+            handedIn={Boolean(project?.submitted_at)}
             track="python"
             lesson={lesson}
             review={review}

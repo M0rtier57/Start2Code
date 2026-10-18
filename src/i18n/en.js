@@ -161,6 +161,14 @@ export const en = {
   'lbl.usedOn': 'Used on: {count}',
   'lbl.removeFrom': 'Remove label {name}',
   'lbl.confirmDelete': 'Delete the label “{name}”? It comes off {count} project(s). The projects themselves stay.',
+  'lock.badge': 'Locked',
+  'lock.hint': 'Hand in “{previous}” first, then this level opens.',
+  'lock.handInFirst': 'Hand this project in first (the button at the top). Then you can go on to “{title}”.',
+  'lock.openAll': 'All levels open',
+  'lock.openAllOn': 'Children in this class can start any level straight away.',
+  'lock.openAllOff': 'Children open the next level only once they have handed in the previous one.',
+  'lock.nowOpen': 'All levels are open for this class.',
+  'lock.nowOrdered': 'Levels open one at a time again.',
   'login.notConnected': 'Not connected to Supabase',
 
   /* --- navigation -------------------------------------------------------- */

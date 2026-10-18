@@ -357,6 +357,7 @@ export default function ScratchWorkspace() {
           />
         ) : showLesson && (
           <LessonPanel
+            handedIn={Boolean(project?.submitted_at)}
             track="scratch"
             lesson={lesson}
             review={review}

@@ -190,6 +190,18 @@ a:hover { text-decoration: underline; }
 .tile:active { transform: translateY(-1px) scale(0.995); }
 .tile:focus-visible { outline: 4px solid var(--brand); outline-offset: 3px; }
 
+/* A level that is still waiting for the one before it. Greyed by colour, not by
+   opacity: the text has to stay readable, since it says what to do next. */
+.tile-locked,
+.tile-locked:hover {
+  background: #eef1f4;
+  border: 2px dashed var(--ink-faint);
+  box-shadow: none;
+  transform: none;
+  cursor: not-allowed;
+  color: var(--ink-soft);
+}
+
 /* A colour per activity, so a child recognises it before reading it. */
 .tile-zon          { border-color: #f7d6a2; background: linear-gradient(170deg, var(--zon-wash), #fff 62%); }
 .tile-zon:hover    { border-color: var(--zon); }

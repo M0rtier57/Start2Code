@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getProgressFor, saveProgress } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
 import { useCurriculum } from '../lib/CurriculumContext'
+import { useNextLocked } from '../lib/lessonLocks'
 import { ReviewSummary } from './review'
 import { ProgressBar } from './ui'
 import { useI18n } from '../i18n'
@@ -17,9 +18,10 @@ import { useI18n } from '../i18n'
  * When the work has been marked, the teacher's note for a step is shown right
  * underneath it — which is where a child is actually looking.
  */
-export default function LessonPanel({ track, lesson, review, onPickLesson, onClose }) {
+export default function LessonPanel({ track, lesson, review, handedIn = false, onPickLesson, onClose }) {
   const { user } = useAuth()
   const { nextLesson } = useCurriculum()
+  const nextLocked = useNextLocked(lesson, handedIn)
   const { t, pick } = useI18n()
 
   const storageKey = user && lesson ? `s2c:steps:${user.id}:${lesson.id}` : null
@@ -153,10 +155,13 @@ export default function LessonPanel({ track, lesson, review, onPickLesson, onClo
           <div className="card card-flat mt-4" style={{ background: '#1b2a20', borderColor: '#2f5c3a', color: '#c3f0cd' }}>
             <strong>{t('lesson.complete')}</strong>
             <p className="small mt-2">{t('lesson.completeSub')}</p>
-            {upcoming && onPickLesson && (
+            {upcoming && onPickLesson && !nextLocked && (
               <button className="btn btn-ok btn-block mt-4" onClick={() => onPickLesson(upcoming)}>
                 {t('lesson.next', { title: pick(upcoming.title) })}
               </button>
+            )}
+            {upcoming && onPickLesson && nextLocked && (
+              <p className="small mt-4">🔒 {t('lock.handInFirst', { title: pick(upcoming.title) })}</p>
             )}
           </div>
         )}

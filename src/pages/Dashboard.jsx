@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 
 import { Empty, KindBadge, LoadingScreen, Modal, ProgressBar, timeAgo, useToast } from '../components/ui'
 import { useAuth } from '../lib/AuthContext'
+import { lessonLocks } from '../lib/lessonLocks'
 import {
   createProject, deleteProject, joinClassByCode, listMyClasses,
   listMyProgress, listMyProjects, listMyReviews, logActivity, submitProject
@@ -16,7 +17,7 @@ import { BLANK_PYGAME, BLANK_PYTHON } from '../curriculum/python'
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const { user, displayName } = useAuth()
+  const { user, displayName, isTeacher } = useAuth()
   const toast = useToast()
   const { tracks, classLessons } = useCurriculum()
   const { t, pick } = useI18n()
@@ -53,6 +54,11 @@ export default function Dashboard() {
     progress.forEach((row) => map.set(row.lesson_id, row))
     return map
   }, [progress])
+
+  // Which of the teacher's levels are still waiting on the one before.
+  const locks = useMemo(() => lessonLocks({
+    lessons: classLessons, classes, projects, progress, bypass: isTeacher
+  }), [classLessons, classes, projects, progress, isTeacher])
 
   const start = useCallback(async (trackId, lesson) => {
     try {
@@ -168,6 +174,28 @@ export default function Dashboard() {
             {classLessons.map((lesson) => {
               const row = progressByLesson.get(lesson.id)
               const complete = row?.status === 'completed'
+              const lock = locks.get(lesson.id)
+
+              // A level that has to wait is a real disabled button: it cannot be
+              // tabbed into by mistake, and a screen reader says why.
+              if (lock?.locked) {
+                return (
+                  <button
+                    key={lesson.id}
+                    className="tile tile-locked"
+                    disabled
+                    aria-label={`${pick(lesson.title)}. ${t('lock.hint', { previous: pick(lock.previous.title) })}`}
+                  >
+                    <div className="row-between">
+                      <KindBadge kind={lesson.track} />
+                      <span className="badge">🔒 {t('lock.badge')}</span>
+                    </div>
+                    <h3 className="mt-2">{pick(lesson.title)}</h3>
+                    <p className="small mt-2">{t('lock.hint', { previous: pick(lock.previous.title) })}</p>
+                  </button>
+                )
+              }
+
               return (
                 <button
                   key={lesson.id}

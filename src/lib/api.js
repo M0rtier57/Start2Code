@@ -156,7 +156,7 @@ export async function listMyClasses() {
   return unwrap(
     await supabase
       .from('classes')
-      .select('id, name, join_code, archived, created_at, teacher_id')
+      .select('*')
       .order('created_at', { ascending: false })
   )
 }
@@ -180,6 +180,12 @@ export async function createClass(name, teacherId) {
     if (error.code !== '23505') throw new Error(error.message)
   }
   throw new Error('Could not generate a free class code. Please try again.')
+}
+
+/** Open every level of a class at once, or go back to one at a time. */
+export async function setClassLessonsOpen(id, open) {
+  const { error } = await supabase.from('classes').update({ lessons_open: open }).eq('id', id)
+  if (error) throw new Error(error.message)
 }
 
 export async function archiveClass(id, archived) {
