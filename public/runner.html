@@ -12,15 +12,16 @@
       font-family: ui-sans-serif, system-ui, "Segoe UI", sans-serif;
     }
 
-    /* The stage keeps a 16:9 box no matter how the pane is resized. */
+    /* The stage takes the shape of the window the program asked for: a 400 x 300
+       game gets a 4:3 box, not a corner of a 16:9 one. fit() below sets the
+       size; this is only what it looks like before a program has run. */
     #stage-wrap {
       width: 100%; height: 100%;
       display: flex; align-items: center; justify-content: center;
     }
     canvas#game-canvas {
-      width: 100%; height: auto;
-      aspect-ratio: 16 / 9;
-      max-height: 100%; max-width: calc(100vh * 16 / 9);
+      box-sizing: border-box;
+      max-width: 100%; max-height: 100%;
       display: block; background: #000;
       border: 1px solid #2a2f3a; border-radius: 10px;
       box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
@@ -80,6 +81,39 @@
       msg.source = SELF_TAG;
       window.parent.postMessage(msg, '*');
     }
+
+    var canvas = document.getElementById('game-canvas');
+
+    // Scale the canvas, whatever its pixel size, to the biggest box that fits the
+    // pane while keeping its shape. The pixels drawn to stay the program's own;
+    // only the size they are shown at changes, so mouse positions still match.
+    function fit() {
+      var w = canvas.width, h = canvas.height;
+      if (!w || !h) return;
+      var scale = Math.min(window.innerWidth / w, window.innerHeight / h);
+      canvas.style.width = Math.max(1, Math.floor(w * scale)) + 'px';
+      canvas.style.height = Math.max(1, Math.floor(h * scale)) + 'px';
+    }
+    window.addEventListener('resize', fit);
+    fit();
+
+    // py-runtime.py calls this whenever pygame.display.set_mode() is used.
+    // PyScript gives pygame one fixed 1280 x 720 canvas and never resizes it, so
+    // a smaller window was drawn into a corner and a bigger one was cut off.
+    window.s2cResize = function (w, h) {
+      w = Number(w); h = Number(h);
+      if (!(w > 0 && h > 0)) return;
+      if (canvas.width !== w) canvas.width = w;
+      if (canvas.height !== h) canvas.height = h;
+      fit();
+    };
+
+    // pygame.display.set_caption() sets this frame's document title, which
+    // nobody can see. Pass it up so the editor can show it above the stage.
+    var startTitle = document.title;
+    new MutationObserver(function () {
+      if (document.title !== startTitle) post({ type: 'caption', title: document.title });
+    }).observe(document.querySelector('title'), { childList: true, characterData: true, subtree: true });
 
     var idle = document.getElementById('idle');
     function setIdle(html) {
@@ -156,6 +190,7 @@
               (isGame ? '<br/>Loading pygame — this takes a few seconds the first time.' : ''));
 
       window.s2cSource = code;
+      window.s2cMode = mode;
 
       // The runtime and the lessons have to be of the same version: a lesson
       // that no longer carries the asyncio boilerplate relies on the runtime

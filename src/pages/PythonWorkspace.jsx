@@ -46,6 +46,7 @@ export default function PythonWorkspace() {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [frameKey, setFrameKey] = useState(0)
   const [stageFull, setStageFull] = useState(false)
+  const [caption, setCaption] = useState('')   // pygame.display.set_caption(), shown above the stage
   const [editorReady, setEditorReady] = useState(false)
   const [menu, setMenu] = useState(null)   // { x, y, target: 'console' | 'stage' }
 
@@ -172,6 +173,9 @@ export default function PythonWorkspace() {
         case 'started':
           setRunning(true)
           break
+        case 'caption':
+          setCaption(String(data.title ?? ''))
+          break
         case 'output':
           append(data.lines)
           break
@@ -215,6 +219,7 @@ export default function PythonWorkspace() {
     // Pyodide has no clean way to abort a running program, so each run gets a
     // brand new frame. Remounting the iframe is the reset.
     pendingRun.current = { code, mode }
+    setCaption('')
     setFrameKey((key) => key + 1)
 
     if (project && code !== savedCode.current) save(code, title)
@@ -563,7 +568,10 @@ export default function PythonWorkspace() {
             : { flex: 1, borderLeft: '1px solid var(--dark-3)' }}
         >
           <div className="console-head" style={{ borderBottom: '1px solid var(--dark-3)', borderTop: 0 }}>
-            <span>{mode === 'game' ? t('ws.gameStage') : t('ws.consoleStage')}</span>
+            <span>
+              {mode === 'game' ? t('ws.gameStage') : t('ws.consoleStage')}
+              {mode === 'game' && caption && <strong style={{ marginLeft: 10 }}>{caption}</strong>}
+            </span>
             <span style={{ flex: 1 }} />
 
             {stageFull && (

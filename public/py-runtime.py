@@ -288,6 +288,37 @@ def _build(tree):
 # -----------------------------------------------------------------------------
 _w.s2cStarted()
 
+
+def _follow_window_size():
+    """Make the stage the size of the window the program asks for.
+
+    The canvas PyScript hands to pygame never changes size by itself, so
+    set_mode((400, 300)) drew a small picture in the corner of a big black
+    rectangle, and anything larger than 1280 x 720 was cut off. This reports
+    every set_mode() to the page, which resizes the canvas to match.
+    """
+    try:
+        import pygame
+    except Exception:    # noqa: BLE001 - no pygame, nothing to follow
+        return
+
+    original = pygame.display.set_mode
+
+    def set_mode(*args, **kwargs):
+        surface = original(*args, **kwargs)
+        try:
+            width, height = surface.get_size()
+            _w.s2cResize(width, height)
+        except Exception:    # noqa: BLE001 - never let this get in the program's way
+            pass
+        return surface
+
+    pygame.display.set_mode = set_mode
+
+
+if str(_w.s2cMode) == "game":
+    _follow_window_size()
+
 _source = str(_w.s2cSource)
 _source_lines = _source.splitlines()
 _globals = {"__name__": "__main__", "__builtins__": builtins, "_s2c_pause": _s2c_pause}
