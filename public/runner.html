@@ -149,7 +149,13 @@
 
       window.s2cSource = code;
 
-      fetch('/py-runtime.py')
+      // The runtime and the lessons have to be of the same version: a lesson
+      // that no longer carries the asyncio boilerplate relies on the runtime
+      // adding it. With no cache header a browser may keep an old copy for days,
+      // so it is asked every time (a 304 when nothing changed) and the build id
+      // makes the address itself new after a deploy.
+      var build = new URLSearchParams(window.location.search).get('v') || '';
+      fetch('/py-runtime.py?v=' + encodeURIComponent(build), { cache: 'no-cache' })
         .then(function (res) {
           if (!res.ok) throw new Error('py-runtime.py could not be loaded (' + res.status + ')');
           return res.text();

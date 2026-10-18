@@ -586,7 +586,7 @@ export default function PythonWorkspace() {
             <iframe
               key={frameKey}
               ref={frame}
-              src="/runner.html"
+              src={`/runner.html?v=${import.meta.env.VITE_BUILD_ID}`}
               className="iframe-fill"
               title="Python runner"
             />

@@ -71,7 +71,14 @@
 
   # index.html must never be cached, or students keep loading the old app
   # after an update.
-  <FilesMatch "^index\.html$">
+  #
+  # The same goes for everything else that is NOT fingerprinted. Vite names its
+  # own bundles after their content, so those can be cached for a year; these
+  # keep the same name for ever. Without this they fall under the one-year rule
+  # above (the .js) or a browser's own guess (the rest), and a returning pupil
+  # keeps an old copy after the site has moved on. The Python runtime is the one
+  # that bites: a new lesson paired with an old runtime freezes the browser.
+  <FilesMatch "^(index|runner|scratch)\.html$|^py-runtime\.py$|^scratch-host\.js$|^extension-worker\.js$">
     ExpiresDefault "access plus 0 seconds"
     Header set Cache-Control "no-cache, must-revalidate"
   </FilesMatch>

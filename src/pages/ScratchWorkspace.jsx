@@ -375,7 +375,7 @@ export default function ScratchWorkspace() {
           )}
           <iframe
             ref={frame}
-            src="/scratch.html"
+            src={`/scratch.html?v=${import.meta.env.VITE_BUILD_ID}`}
             className="iframe-fill"
             title="Scratch editor"
             allow="autoplay; microphone; camera"

@@ -30,6 +30,10 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     define: {
+      // Changes on every build. The frames that are not fingerprinted by Vite
+      // (runner.html, scratch.html) are requested with this on the end, so a
+      // deploy can never be paired with a copy of them from before it.
+      'import.meta.env.VITE_BUILD_ID': JSON.stringify(Date.now().toString(36)),
       'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(supabaseUrl),
       'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(supabaseAnonKey)
     }
