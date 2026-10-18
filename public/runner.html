@@ -147,6 +147,24 @@
       if (flushTimer === null) flushTimer = setTimeout(flush, 30);
     };
 
+    // input() asks the editor, which puts a text box at the end of the console.
+    // It has to be a promise: the editor answers some time later, and a program
+    // cannot sit and wait for it here without freezing the very page that holds
+    // the text box. py-runtime.py turns the child's input() into an await.
+    var inputSeq = 0;
+    var pendingInputs = {};
+
+    window.s2cAsk = function (prompt) {
+      flush();   // the question must be on screen before the box appears
+      return new Promise(function (resolve) {
+        var id = ++inputSeq;
+        pendingInputs[id] = resolve;
+        post({ type: 'input-request', id: id, prompt: String(prompt == null ? '' : prompt) });
+      });
+    };
+
+    // The last resort, for an input() that could not be made awaitable (see
+    // py-runtime.py). Still a pop-up, which is exactly why it is the last resort.
     window.s2cInput = function (prompt) {
       flush(); // make sure the question is on screen before we block
       var answer = window.prompt(prompt && prompt.length ? prompt : 'Your program is asking for input:');
@@ -271,6 +289,13 @@
       var data = event.data;
       if (!data || data.source !== 's2c') return;
       if (data.type === 'run') run(String(data.code || ''), data.mode);
+      if (data.type === 'input-response') {
+        var answer = pendingInputs[data.id];
+        if (answer) {
+          delete pendingInputs[data.id];
+          answer(data.value == null ? null : String(data.value));
+        }
+      }
       if (data.type === 'snapshot') snapshot();
     });
 

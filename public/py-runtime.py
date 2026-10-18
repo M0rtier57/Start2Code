@@ -43,12 +43,32 @@ sys.stdout = _Stream("out")
 sys.stderr = _Stream("err")
 
 
+async def _s2c_ask(prompt=""):
+    """input(), answered in the console instead of a pop-up."""
+    text = "" if prompt is None else str(prompt)
+    value = await _w.s2cAsk(text)
+    if value is None:
+        raise EOFError("The program asked for input but nothing was typed in.")
+    # Echo the prompt and the answer so the console reads like a real terminal.
+    sys.stdout.write(text + str(value) + "\n")
+    return str(value)
+
+
 def _s2c_input(prompt=""):
+    """The plain, blocking input(), for the places a program could not be made
+    to await it. Where the browser can pause Python without freezing the page
+    (JSPI), the console is still used; where it cannot, this is a pop-up."""
+    try:
+        from pyodide.ffi import can_run_sync, run_sync
+        if can_run_sync():
+            return run_sync(_s2c_ask(prompt))
+    except Exception:    # noqa: BLE001 - no JSPI here, use the pop-up
+        pass
+
     text = "" if prompt is None else str(prompt)
     value = _w.s2cInput(text)
     if value is None:
         raise EOFError("The program asked for input but nothing was typed in.")
-    # Echo the prompt and the answer so the console reads like a real terminal.
     sys.stdout.write(text + str(value) + "\n")
     return str(value)
 
@@ -176,6 +196,14 @@ def _is_frame_call(node):
     )
 
 
+def _is_input_call(node):
+    return (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "input"
+    )
+
+
 def _already_async(tree):
     for node in ast.walk(tree):
         if isinstance(node, (ast.AsyncFunctionDef, ast.Await, ast.AsyncFor, ast.AsyncWith)):
@@ -187,13 +215,17 @@ def _already_async(tree):
     return False
 
 
-def _functions_that_draw(tree):
-    """Names of top-level functions that draw a frame, directly or through another."""
+def _functions_that_wait(tree, with_input):
+    """Names of top-level functions that wait on the browser, directly or through
+    another: they draw a frame or, if asked, call input()."""
     defs = {n.name: n for n in tree.body if isinstance(n, ast.FunctionDef)}
+
+    def waits(node):
+        return _is_frame_call(node) or (with_input and _is_input_call(node))
 
     slow = {
         name for name, fn in defs.items()
-        if any(_is_frame_call(n) for n in ast.walk(fn))
+        if any(waits(n) for n in ast.walk(fn))
     }
 
     # A function that calls a slow function is slow too: it has to wait for it.
@@ -212,8 +244,9 @@ def _functions_that_draw(tree):
 
 
 class _Breathe(ast.NodeTransformer):
-    def __init__(self, slow):
+    def __init__(self, slow, with_input):
         self.slow = slow
+        self.with_input = with_input
         self.in_class = 0
         self.in_function = 0
 
@@ -239,6 +272,13 @@ class _Breathe(ast.NodeTransformer):
 
     def visit_Call(self, node):
         self.generic_visit(node)
+
+        # input("...") becomes await _s2c_ask("..."): the answer is typed into
+        # the console, which only works if the page is free to show the box.
+        if self.with_input and _is_input_call(node):
+            node.func = ast.copy_location(ast.Name(id="_s2c_ask", ctx=ast.Load()), node.func)
+            return ast.copy_location(ast.Await(value=node), node)
+
         if isinstance(node.func, ast.Name) and node.func.id in self.slow:
             return ast.copy_location(ast.Await(value=node), node)
         return node
@@ -266,21 +306,28 @@ class _Breathe(ast.NodeTransformer):
         return node
 
 
-def _build(tree):
-    """Compile the student's program, adding the pauses a browser needs."""
-    if not _already_async(tree):
-        try:
-            rewritten = _Breathe(_functions_that_draw(tree)).visit(tree)
-            ast.fix_missing_locations(rewritten)
-            return compile(rewritten, STUDENT_FILE, "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
-        except Exception:    # noqa: BLE001
-            # Something we cannot make breathe (a drawing method inside a class,
-            # say). Run it as written: it works, it just cannot be stopped
-            # mid-loop. A genuine mistake in the code is reported below, from
-            # the plain compile, exactly as before.
-            pass
+def _build(tree_source):
+    """Compile the student's program, adding the waits a browser needs.
 
-    return compile(_source, STUDENT_FILE, "exec")
+    Tried in order, each a step down from the last:
+      1. frames AND input() made awaitable   (the normal case)
+      2. frames only                         (an input() somewhere it cannot await,
+                                              such as a method or a lambda)
+      3. exactly as written                  (anything else; it still works, it just
+                                              cannot be stopped mid-loop)
+    A genuine mistake in the code is reported from the last, plain compile.
+    """
+    if not _already_async(ast.parse(tree_source, STUDENT_FILE)):
+        for with_input in (True, False):
+            try:
+                tree = ast.parse(tree_source, STUDENT_FILE)
+                rewritten = _Breathe(_functions_that_wait(tree, with_input), with_input).visit(tree)
+                ast.fix_missing_locations(rewritten)
+                return compile(rewritten, STUDENT_FILE, "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
+            except Exception:    # noqa: BLE001
+                continue
+
+    return compile(tree_source, STUDENT_FILE, "exec")
 
 
 # -----------------------------------------------------------------------------
@@ -321,12 +368,17 @@ if str(_w.s2cMode) == "game":
 
 _source = str(_w.s2cSource)
 _source_lines = _source.splitlines()
-_globals = {"__name__": "__main__", "__builtins__": builtins, "_s2c_pause": _s2c_pause}
+_globals = {
+    "__name__": "__main__",
+    "__builtins__": builtins,
+    "_s2c_pause": _s2c_pause,
+    "_s2c_ask": _s2c_ask,
+}
 
 try:
     # Parsing first gives the usual friendly report for a typo, on the right line.
-    _tree = ast.parse(_source, STUDENT_FILE)
-    _code = _build(_tree)
+    ast.parse(_source, STUDENT_FILE)
+    _code = _build(_source)
 except SyntaxError as exc:          # a mistake in the code itself
     _report(exc)
     _w.s2cDone(False, type(exc).__name__)

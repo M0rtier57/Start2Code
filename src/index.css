@@ -636,6 +636,16 @@ input:focus, select:focus, textarea:focus {
 .console-out .sys { color: #6fd3bd; }
 .console-empty { color: #6b7d88; font-style: italic; }
 
+/* The text box for input(): inline, at the end of the output, like a terminal. */
+.console-ask { display: flex; align-items: center; gap: 8px; white-space: normal; }
+.console-out .console-ask input {
+  flex: 1; min-width: 80px; width: auto;
+  background: #0d1318; color: #fff;
+  border: 1px solid #3b4a57; border-radius: 6px;
+  padding: 4px 8px; font: inherit;
+}
+.console-out .console-ask input:focus-visible { outline: 2px solid #6fd3bd; outline-offset: 1px; box-shadow: none; }
+
 /* --- Lesson panel -------------------------------------------------------- */
 .lesson-panel {
   width: 340px; flex-shrink: 0; background: var(--dark-1);

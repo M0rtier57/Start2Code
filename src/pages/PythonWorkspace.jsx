@@ -46,6 +46,7 @@ export default function PythonWorkspace() {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [frameKey, setFrameKey] = useState(0)
   const [stageFull, setStageFull] = useState(false)
+  const [ask, setAsk] = useState(null)   // { id, prompt } while the program waits on input()
   const [caption, setCaption] = useState('')   // pygame.display.set_caption(), shown above the stage
   const [editorReady, setEditorReady] = useState(false)
   const [menu, setMenu] = useState(null)   // { x, y, target: 'console' | 'stage' }
@@ -176,11 +177,19 @@ export default function PythonWorkspace() {
         case 'caption':
           setCaption(String(data.title ?? ''))
           break
+        case 'input-request':
+          setAsk({ id: data.id, prompt: String(data.prompt ?? '') })
+          // The console is hidden while the stage is fullscreen, and a question
+          // nobody can see is a program that hangs for no visible reason.
+          setStageFull(false)
+          if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {})
+          break
         case 'output':
           append(data.lines)
           break
         case 'finished':
           setRunning(false)
+          setAsk(null)
           append([{ stream: 'sys', text: data.ok ? t('console.finished') : t('console.crashed') }])
 
           // The console is hidden while the stage is fullscreen, so a crash
@@ -220,14 +229,26 @@ export default function PythonWorkspace() {
     // brand new frame. Remounting the iframe is the reset.
     pendingRun.current = { code, mode }
     setCaption('')
+    setAsk(null)
     setFrameKey((key) => key + 1)
 
     if (project && code !== savedCode.current) save(code, title)
     logActivity(user?.id, 'code_run', { project_id: project?.id, mode })
   }, [code, mode, project, save, title, user, t])
 
+  /** The child pressed Enter in the console's text box. */
+  const answer = useCallback((value) => {
+    if (!ask) return
+    frame.current?.contentWindow?.postMessage(
+      { source: 's2c', type: 'input-response', id: ask.id, value },
+      '*'
+    )
+    setAsk(null)
+  }, [ask])
+
   const stop = useCallback(() => {
     pendingRun.current = null
+    setAsk(null)
     setFrameKey((key) => key + 1)
     setRunning(false)
     append([{ stream: 'sys', text: t('console.stopped') }])
@@ -543,6 +564,8 @@ export default function PythonWorkspace() {
           <Console
             entries={output}
             running={running}
+            ask={ask}
+            onAnswer={answer}
             height={consoleHeight}
             onResizeStart={startResize}
             onClear={() => setOutput([])}

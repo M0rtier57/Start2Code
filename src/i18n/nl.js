@@ -174,6 +174,8 @@ export const nl = {
   'lock.openAllOff': 'Kinderen openen het volgende level pas als ze het vorige hebben ingediend.',
   'lock.nowOpen': 'Alle levels staan open voor deze klas.',
   'lock.nowOrdered': 'Levels gaan weer één voor één open.',
+  'console.inputLabel': 'Jouw antwoord',
+  'console.send': 'Verstuur',
   'login.notConnected': 'Niet verbonden met Supabase',
 
   /* --- navigatie --------------------------------------------------------- */

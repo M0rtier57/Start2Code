@@ -169,6 +169,8 @@ export const en = {
   'lock.openAllOff': 'Children open the next level only once they have handed in the previous one.',
   'lock.nowOpen': 'All levels are open for this class.',
   'lock.nowOrdered': 'Levels open one at a time again.',
+  'console.inputLabel': 'Your answer',
+  'console.send': 'Send',
   'login.notConnected': 'Not connected to Supabase',
 
   /* --- navigation -------------------------------------------------------- */
