@@ -235,7 +235,6 @@ print(groet("Alex"))
       ]
     },
     starter: `import pygame
-import asyncio
 
 pygame.init()
 scherm = pygame.display.set_mode((1280, 720))
@@ -245,26 +244,21 @@ ACHTERGROND = (25, 28, 38)
 WIT = (255, 255, 255)
 
 
-async def main():
-    lettertype = pygame.font.Font(None, 90)
-    tekst = lettertype.render("Hallo, spel!", True, WIT)
-    bezig = True
+lettertype = pygame.font.Font(None, 90)
+tekst = lettertype.render("Hallo, spel!", True, WIT)
+bezig = True
 
-    while bezig:
-        for gebeurtenis in pygame.event.get():
-            if gebeurtenis.type == pygame.QUIT:
-                bezig = False
+while bezig:
+    for gebeurtenis in pygame.event.get():
+        if gebeurtenis.type == pygame.QUIT:
+            bezig = False
 
-        scherm.fill(ACHTERGROND)
-        scherm.blit(tekst, tekst.get_rect(center=(640, 360)))
+    scherm.fill(ACHTERGROND)
+    scherm.blit(tekst, tekst.get_rect(center=(640, 360)))
 
-        pygame.display.flip()
-        await asyncio.sleep(0)   # laat de browser even ademen - altijd laten staan
+    pygame.display.flip()
 
-    pygame.quit()
-
-
-asyncio.run(main())
+pygame.quit()
 `
   },
   {
@@ -289,7 +283,6 @@ asyncio.run(main())
       ]
     },
     starter: `import pygame
-import asyncio
 
 pygame.init()
 scherm = pygame.display.set_mode((1280, 720))
@@ -300,31 +293,26 @@ BLAUW = (77, 171, 247)
 GEEL = (255, 212, 59)
 
 
-async def main():
-    bezig = True
-    while bezig:
-        for gebeurtenis in pygame.event.get():
-            if gebeurtenis.type == pygame.QUIT:
-                bezig = False
+bezig = True
+while bezig:
+    for gebeurtenis in pygame.event.get():
+        if gebeurtenis.type == pygame.QUIT:
+            bezig = False
 
-        scherm.fill(ACHTERGROND)
+    scherm.fill(ACHTERGROND)
 
-        # rechthoek: (links, boven, breedte, hoogte)
-        pygame.draw.rect(scherm, ROOD, (100, 100, 300, 180), border_radius=16)
+    # rechthoek: (links, boven, breedte, hoogte)
+    pygame.draw.rect(scherm, ROOD, (100, 100, 300, 180), border_radius=16)
 
-        # cirkel: (midden x, midden y), straal
-        pygame.draw.circle(scherm, GEEL, (800, 300), 90)
+    # cirkel: (midden x, midden y), straal
+    pygame.draw.circle(scherm, GEEL, (800, 300), 90)
 
-        # lijn: startpunt, eindpunt, dikte
-        pygame.draw.line(scherm, BLAUW, (100, 500), (1100, 500), 8)
+    # lijn: startpunt, eindpunt, dikte
+    pygame.draw.line(scherm, BLAUW, (100, 500), (1100, 500), 8)
 
-        pygame.display.flip()
-        await asyncio.sleep(0)
+    pygame.display.flip()
 
-    pygame.quit()
-
-
-asyncio.run(main())
+pygame.quit()
 `
   },
   {
@@ -352,7 +340,6 @@ asyncio.run(main())
       ]
     },
     starter: `import pygame
-import asyncio
 
 pygame.init()
 scherm = pygame.display.set_mode((1280, 720))
@@ -367,46 +354,40 @@ grootte = 60
 snelheid = 7
 
 
-async def main():
-    global x, y
-    bezig = True
+bezig = True
 
-    while bezig:
-        for gebeurtenis in pygame.event.get():
-            if gebeurtenis.type == pygame.QUIT:
-                bezig = False
+while bezig:
+    for gebeurtenis in pygame.event.get():
+        if gebeurtenis.type == pygame.QUIT:
+            bezig = False
 
-        toetsen = pygame.key.get_pressed()
-        if toetsen[pygame.K_LEFT]:
-            x = x - snelheid
-        if toetsen[pygame.K_RIGHT]:
-            x = x + snelheid
-        if toetsen[pygame.K_UP]:
-            y = y - snelheid
-        if toetsen[pygame.K_DOWN]:
-            y = y + snelheid
+    toetsen = pygame.key.get_pressed()
+    if toetsen[pygame.K_LEFT]:
+        x = x - snelheid
+    if toetsen[pygame.K_RIGHT]:
+        x = x + snelheid
+    if toetsen[pygame.K_UP]:
+        y = y - snelheid
+    if toetsen[pygame.K_DOWN]:
+        y = y + snelheid
 
-        # Hou de speler op het scherm.
-        if x < 0:
-            x = 0
-        if x > 1280 - grootte:
-            x = 1280 - grootte
-        if y < 0:
-            y = 0
-        if y > 720 - grootte:
-            y = 720 - grootte
+    # Hou de speler op het scherm.
+    if x < 0:
+        x = 0
+    if x > 1280 - grootte:
+        x = 1280 - grootte
+    if y < 0:
+        y = 0
+    if y > 720 - grootte:
+        y = 720 - grootte
 
-        scherm.fill(ACHTERGROND)
-        pygame.draw.rect(scherm, GROEN, (x, y, grootte, grootte), border_radius=10)
+    scherm.fill(ACHTERGROND)
+    pygame.draw.rect(scherm, GROEN, (x, y, grootte, grootte), border_radius=10)
 
-        pygame.display.flip()
-        klok.tick(60)
-        await asyncio.sleep(0)
+    pygame.display.flip()
+    klok.tick(60)
 
-    pygame.quit()
-
-
-asyncio.run(main())
+pygame.quit()
 `
   },
   {
@@ -436,7 +417,6 @@ asyncio.run(main())
       ]
     },
     starter: `import pygame
-import asyncio
 import random
 
 pygame.init()
@@ -454,49 +434,43 @@ stersnelheid = 5
 score = 0
 
 
-async def main():
-    global ster, stersnelheid, score
-    lettertype = pygame.font.Font(None, 48)
-    bezig = True
+lettertype = pygame.font.Font(None, 48)
+bezig = True
 
-    while bezig:
-        for gebeurtenis in pygame.event.get():
-            if gebeurtenis.type == pygame.QUIT:
-                bezig = False
+while bezig:
+    for gebeurtenis in pygame.event.get():
+        if gebeurtenis.type == pygame.QUIT:
+            bezig = False
 
-        toetsen = pygame.key.get_pressed()
-        if toetsen[pygame.K_LEFT]:
-            speler.x = speler.x - 9
-        if toetsen[pygame.K_RIGHT]:
-            speler.x = speler.x + 9
-        speler.clamp_ip(scherm.get_rect())
+    toetsen = pygame.key.get_pressed()
+    if toetsen[pygame.K_LEFT]:
+        speler.x = speler.x - 9
+    if toetsen[pygame.K_RIGHT]:
+        speler.x = speler.x + 9
+    speler.clamp_ip(scherm.get_rect())
 
-        ster.y = ster.y + stersnelheid
+    ster.y = ster.y + stersnelheid
 
-        # Gevangen?
-        if speler.colliderect(ster):
-            score = score + 1
-            ster.y = -40
-            ster.x = random.randint(0, 1240)
+    # Gevangen?
+    if speler.colliderect(ster):
+        score = score + 1
+        ster.y = -40
+        ster.x = random.randint(0, 1240)
 
-        # Gemist - terug naar boven.
-        if ster.top > 720:
-            ster.y = -40
-            ster.x = random.randint(0, 1240)
+    # Gemist - terug naar boven.
+    if ster.top > 720:
+        ster.y = -40
+        ster.x = random.randint(0, 1240)
 
-        scherm.fill(ACHTERGROND)
-        pygame.draw.rect(scherm, GROEN, speler, border_radius=8)
-        pygame.draw.rect(scherm, GEEL, ster, border_radius=8)
-        scherm.blit(lettertype.render(f"Score: {score}", True, WIT), (24, 24))
+    scherm.fill(ACHTERGROND)
+    pygame.draw.rect(scherm, GROEN, speler, border_radius=8)
+    pygame.draw.rect(scherm, GEEL, ster, border_radius=8)
+    scherm.blit(lettertype.render(f"Score: {score}", True, WIT), (24, 24))
 
-        pygame.display.flip()
-        klok.tick(60)
-        await asyncio.sleep(0)
+    pygame.display.flip()
+    klok.tick(60)
 
-    pygame.quit()
-
-
-asyncio.run(main())
+pygame.quit()
 `
   }
 ]

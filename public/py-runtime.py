@@ -7,6 +7,8 @@
 # on rather than a raw traceback.
 # =============================================================================
 import sys
+import ast
+import asyncio
 import builtins
 import traceback
 
@@ -137,22 +139,171 @@ def _report(exc):
 
 
 # -----------------------------------------------------------------------------
+# Letting the browser breathe, without the child having to know.
+#
+# A browser runs everything on one thread. A game loop that never hands control
+# back freezes the whole tab: no drawing, no clicks, no way to press Stop. The
+# standard cure is to make the program async and `await asyncio.sleep(0)` once
+# per frame — which is exactly the part a ten-year-old should not have to read.
+#
+# So the child writes an ordinary pygame loop, and this rewrites it on the way
+# in: every `pygame.display.flip()` (or `update()`) is followed by a pause, and
+# any function that draws is made async and awaited where it is called. The
+# line numbers are untouched, so error messages still point at the child's own
+# lines.
+#
+# Code that already uses asyncio is left exactly as written — lessons from
+# before this existed, and anyone who knows what they are doing.
+# -----------------------------------------------------------------------------
+_FRAME_CALLS = {"flip", "update"}
+
+
+async def _s2c_pause():
+    await asyncio.sleep(0)
+
+
+def _is_frame_call(node):
+    """True for a statement like pygame.display.flip() or display.update()."""
+    if not (isinstance(node, ast.Expr) and isinstance(node.value, ast.Call)):
+        return False
+    func = node.value.func
+    if not (isinstance(func, ast.Attribute) and func.attr in _FRAME_CALLS):
+        return False
+    owner = func.value
+    return (
+        (isinstance(owner, ast.Attribute) and owner.attr == "display")
+        or (isinstance(owner, ast.Name) and owner.id == "display")
+    )
+
+
+def _already_async(tree):
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.AsyncFunctionDef, ast.Await, ast.AsyncFor, ast.AsyncWith)):
+            return True
+        if isinstance(node, ast.Import) and any(a.name.split(".")[0] == "asyncio" for a in node.names):
+            return True
+        if isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[0] == "asyncio":
+            return True
+    return False
+
+
+def _functions_that_draw(tree):
+    """Names of top-level functions that draw a frame, directly or through another."""
+    defs = {n.name: n for n in tree.body if isinstance(n, ast.FunctionDef)}
+
+    slow = {
+        name for name, fn in defs.items()
+        if any(_is_frame_call(n) for n in ast.walk(fn))
+    }
+
+    # A function that calls a slow function is slow too: it has to wait for it.
+    changed = True
+    while changed:
+        changed = False
+        for name, fn in defs.items():
+            if name in slow:
+                continue
+            for n in ast.walk(fn):
+                if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id in slow:
+                    slow.add(name)
+                    changed = True
+                    break
+    return slow
+
+
+class _Breathe(ast.NodeTransformer):
+    def __init__(self, slow):
+        self.slow = slow
+        self.in_class = 0
+        self.in_function = 0
+
+    def visit_ClassDef(self, node):
+        self.in_class += 1
+        try:
+            return self.generic_visit(node)
+        finally:
+            self.in_class -= 1
+
+    def visit_FunctionDef(self, node):
+        top_level = self.in_class == 0 and self.in_function == 0
+        self.in_function += 1
+        try:
+            self.generic_visit(node)
+        finally:
+            self.in_function -= 1
+
+        if top_level and node.name in self.slow:
+            made = ast.AsyncFunctionDef(**{field: getattr(node, field) for field in node._fields})
+            return ast.copy_location(made, node)
+        return node
+
+    def visit_Call(self, node):
+        self.generic_visit(node)
+        if isinstance(node.func, ast.Name) and node.func.id in self.slow:
+            return ast.copy_location(ast.Await(value=node), node)
+        return node
+
+    def generic_visit(self, node):
+        super().generic_visit(node)
+
+        # After every frame is drawn, give the browser a turn.
+        for field in ("body", "orelse", "finalbody"):
+            statements = getattr(node, field, None)
+            if not (isinstance(statements, list) and statements
+                    and all(isinstance(s, ast.stmt) for s in statements)):
+                continue
+
+            rebuilt = []
+            for statement in statements:
+                rebuilt.append(statement)
+                if _is_frame_call(statement):
+                    pause = ast.Expr(value=ast.Await(value=ast.Call(
+                        func=ast.Name(id="_s2c_pause", ctx=ast.Load()), args=[], keywords=[]
+                    )))
+                    rebuilt.append(ast.copy_location(pause, statement))
+            setattr(node, field, rebuilt)
+
+        return node
+
+
+def _build(tree):
+    """Compile the student's program, adding the pauses a browser needs."""
+    if not _already_async(tree):
+        try:
+            rewritten = _Breathe(_functions_that_draw(tree)).visit(tree)
+            ast.fix_missing_locations(rewritten)
+            return compile(rewritten, STUDENT_FILE, "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
+        except Exception:    # noqa: BLE001
+            # Something we cannot make breathe (a drawing method inside a class,
+            # say). Run it as written: it works, it just cannot be stopped
+            # mid-loop. A genuine mistake in the code is reported below, from
+            # the plain compile, exactly as before.
+            pass
+
+    return compile(_source, STUDENT_FILE, "exec")
+
+
+# -----------------------------------------------------------------------------
 # Run the student's program.
 # -----------------------------------------------------------------------------
 _w.s2cStarted()
 
 _source = str(_w.s2cSource)
 _source_lines = _source.splitlines()
-_globals = {"__name__": "__main__", "__builtins__": builtins}
+_globals = {"__name__": "__main__", "__builtins__": builtins, "_s2c_pause": _s2c_pause}
 
 try:
-    _code = compile(_source, STUDENT_FILE, "exec")
+    # Parsing first gives the usual friendly report for a typo, on the right line.
+    _tree = ast.parse(_source, STUDENT_FILE)
+    _code = _build(_tree)
 except SyntaxError as exc:          # a mistake in the code itself
     _report(exc)
     _w.s2cDone(False, type(exc).__name__)
 else:
     try:
-        exec(_code, _globals)
+        _outcome = eval(_code, _globals)
+        if asyncio.iscoroutine(_outcome):
+            await _outcome
     except SystemExit:              # sys.exit() is a normal way to finish
         _w.s2cDone(True, "")
     except BaseException as exc:    # noqa: BLE001 - the point is to catch everything
