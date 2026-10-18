@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { downloadAsset, removeAssets, saveProjectExtras, uploadAsset } from './api'
 import { MAX_ASSETS, spriteFileName } from './projectFiles'
-import { prepareSprite } from './spriteUpload'
+import { ensurePng, prepareSprite } from './spriteUpload'
 import { librarySprites } from '../curriculum/sprites'
 
 /**
@@ -39,7 +39,9 @@ export function useProjectAssets({ project, userId, reviewing, onError }) {
           return response.blob()
         })
         : downloadAsset(asset.ref)
-      ).then(async (blob) => {
+      ).then(async (received) => {
+        // Never hand the program bytes that merely claim to be a PNG.
+        const blob = await ensurePng(received)
         const url = URL.createObjectURL(blob)
         made.current.push(url)
         setUrls((current) => ({ ...current, [asset.name]: url }))

@@ -25,6 +25,51 @@ export const MAX_STORED_BYTES = 1024 * 1024
 
 export const ACCEPT_ATTRIBUTE = ACCEPTED.join(',')
 
+const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+
+async function isPng(blob) {
+  const head = new Uint8Array(await blob.slice(0, 8).arrayBuffer())
+  return PNG_SIGNATURE.every((byte, index) => head[index] === byte)
+}
+
+/**
+ * Whatever came back, as a real PNG.
+ *
+ * pygame reads PNG and not WebP, and a sprite is saved to the program as
+ * "something.png". The bytes have to match the name — and on a host that
+ * "optimises" images they do not always: Hostinger's CDN answers a request that
+ * says it can read WebP with a WebP copy of the PNG, under the same address and
+ * without telling a cache the answer varies. A page that has shown the picture
+ * has therefore already cached the WebP, and a later fetch of the same address
+ * gets it back, still called .png.
+ *
+ * So the bytes are looked at rather than trusted. A PNG goes through untouched;
+ * anything else the browser can draw is drawn and saved again as a PNG; and
+ * anything it cannot read at all is an error, said plainly.
+ */
+export async function ensurePng(blob) {
+  if (await isPng(blob)) return blob.type === 'image/png' ? blob : new Blob([blob], { type: 'image/png' })
+
+  let bitmap
+  try {
+    bitmap = await createImageBitmap(blob)
+  } catch {
+    throw new Error('sprite.notImage')
+  }
+
+  try {
+    const canvas = document.createElement('canvas')
+    canvas.width = bitmap.width
+    canvas.height = bitmap.height
+    canvas.getContext('2d').drawImage(bitmap, 0, 0)
+    const png = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'))
+    if (!png) throw new Error('sprite.notImage')
+    return png
+  } finally {
+    bitmap.close?.()
+  }
+}
+
 /**
  * @returns {Promise<{ blob: Blob, width: number, height: number }>} a PNG
  */
